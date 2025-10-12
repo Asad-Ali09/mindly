@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useRef, useEffect, useState } from 'react';
+import { LessonResponse, DrawingInstruction, CaptionSegment, SAMPLE_LESSON } from '@/types/lesson';
 
 interface Point {
   x: number;
@@ -39,204 +40,185 @@ interface DrawingElement {
   xRange?: [number, number]; // For axis/graph
   yRange?: [number, number]; // For axis/graph
   dashPattern?: number[]; // For dashed lines
+  animationProgress?: number; // 0 to 1, for animating the drawing
 }
 
 const Whiteboard = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [elements, setElements] = useState<DrawingElement[]>([]);
+  const [currentCaption, setCurrentCaption] = useState<string>('');
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [lesson, setLesson] = useState<LessonResponse | null>(null);
+  const animationRef = useRef<number | null>(null);
+  const startTimeRef = useRef<number | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  
+  // Canvas dimensions - base size that lessons are designed for
+  const BASE_WIDTH = 800;
+  const BASE_HEIGHT = 600;
+  const [canvasWidth, setCanvasWidth] = useState(BASE_WIDTH);
+  const [canvasHeight, setCanvasHeight] = useState(BASE_HEIGHT);
+  const [scale, setScale] = useState(1);
 
-  // Sample data - educational content about mathematics
-  const sampleData: DrawingElement[] = [
-    // Title text
-    {
-      type: 'text',
-      start: { x: 50, y: 50 },
-      text: 'Pythagorean Theorem',
-      color: '#2563eb',
-      lineWidth: 2,
-    },
-    // Formula
-    {
-      type: 'text',
-      start: { x: 50, y: 100 },
-      text: 'a² + b² = c²',
-      color: '#dc2626',
-      lineWidth: 2,
-    },
-    // Right triangle - vertical line
-    {
-      type: 'line',
-      points: [
-        { x: 100, y: 300 },
-        { x: 100, y: 150 },
-      ],
-      color: '#1f2937',
-      lineWidth: 3,
-    },
-    // Right triangle - horizontal line
-    {
-      type: 'line',
-      points: [
-        { x: 100, y: 300 },
-        { x: 300, y: 300 },
-      ],
-      color: '#1f2937',
-      lineWidth: 3,
-    },
-    // Right triangle - hypotenuse
-    {
-      type: 'line',
-      points: [
-        { x: 100, y: 150 },
-        { x: 300, y: 300 },
-      ],
-      color: '#1f2937',
-      lineWidth: 3,
-    },
-    // Labels
-    {
-      type: 'text',
-      start: { x: 60, y: 220 },
-      text: 'a',
-      color: '#059669',
-      lineWidth: 2,
-    },
-    {
-      type: 'text',
-      start: { x: 190, y: 330 },
-      text: 'b',
-      color: '#059669',
-      lineWidth: 2,
-    },
-    {
-      type: 'text',
-      start: { x: 220, y: 210 },
-      text: 'c',
-      color: '#dc2626',
-      lineWidth: 2,
-    },
-    // Circle to highlight right angle
-    {
-      type: 'rectangle',
-      start: { x: 100, y: 280 },
-      width: 20,
-      height: 20,
-      color: '#1f2937',
-      lineWidth: 2,
-    },
-    // Example values
-    {
-      type: 'text',
-      start: { x: 400, y: 150 },
-      text: 'Example:',
-      color: '#2563eb',
-      lineWidth: 2,
-    },
-    {
-      type: 'text',
-      start: { x: 400, y: 190 },
-      text: 'If a = 3 and b = 4',
-      color: '#1f2937',
-      lineWidth: 1.5,
-    },
-    {
-      type: 'text',
-      start: { x: 400, y: 230 },
-      text: 'Then c = √(9 + 16) = 5',
-      color: '#1f2937',
-      lineWidth: 1.5,
-    },
-    // Arrow pointing to triangle
-    {
-      type: 'arrow',
-      start: { x: 380, y: 270 },
-      end: { x: 320, y: 270 },
-      color: '#7c3aed',
-      lineWidth: 2,
-    },
-    // Smooth curve for annotation/emphasis
-    {
-      type: 'curve',
-      points: [
-        { x: 50, y: 120 },
-        { x: 80, y: 110 },
-        { x: 110, y: 115 },
-        { x: 140, y: 120 },
-        { x: 170, y: 118 },
-        { x: 200, y: 120 },
-      ],
-      color: '#dc2626',
-      lineWidth: 2,
-    },
-    // Curved arrow-like underline for emphasis
-    {
-      type: 'curve',
-      points: [
-        { x: 400, y: 160 },
-        { x: 430, y: 165 },
-        { x: 460, y: 163 },
-        { x: 490, y: 160 },
-      ],
-      color: '#2563eb',
-      lineWidth: 2,
-    },
-    // Highlighter over formula
-    {
-      type: 'highlighter',
-      start: { x: 45, y: 80 },
-      width: 160,
-      height: 35,
-      color: '#fbbf24',
-      opacity: 0.3,
-      lineWidth: 0,
-    },
-    // Polygon - filled triangle
-    {
-      type: 'polygon',
-      points: [
-        { x: 550, y: 450 },
-        { x: 650, y: 450 },
-        { x: 600, y: 380 },
-      ],
-      color: '#10b981',
-      lineWidth: 2,
-      fill: true,
-      opacity: 0.3,
-    },
-    // Dashed line for construction
-    {
-      type: 'dashed-line',
-      start: { x: 300, y: 150 },
-      end: { x: 100, y: 300 },
-      color: '#6b7280',
-      lineWidth: 1,
-      dashPattern: [5, 5],
-    },
-    // Angle marker at right angle
-    {
-      type: 'angle',
-      start: { x: 100, y: 300 },
-      degrees: 90,
-      radius: 30,
-      color: '#8b5cf6',
-      lineWidth: 2,
-    },
-    // Coordinate axis
-    {
-      type: 'axis',
-      start: { x: 550, y: 300 },
-      width: 200,
-      height: 150,
-      color: '#1f2937',
-      lineWidth: 2,
-      xRange: [-5, 5],
-      yRange: [-3, 3],
-    },
-  ];
-
+  // Handle responsive canvas sizing
   useEffect(() => {
-    setElements(sampleData);
+    const updateCanvasSize = () => {
+      if (!containerRef.current) return;
+
+      const container = containerRef.current;
+      const containerWidth = container.clientWidth;
+      const containerHeight = container.clientHeight;
+
+      // Account for padding and borders
+      // Outer container: p-2 sm:p-4 = 8px mobile, 16px desktop
+      // Inner div: p-2 sm:p-4 = 8px mobile, 16px desktop  
+      // Border: 4px on each side
+      // Canvas border: 2px on each side
+      const isMobile = window.innerWidth < 640;
+      const outerPadding = isMobile ? 8 : 16;
+      const innerPadding = isMobile ? 8 : 16;
+      const borderWidth = 4 + 2; // outer border + canvas border
+      
+      const totalOffset = (outerPadding + innerPadding + borderWidth) * 2;
+      const availableWidth = Math.max(containerWidth - totalOffset, 100);
+      const availableHeight = Math.max(containerHeight - totalOffset, 100);
+
+      // Calculate scale to fit container while maintaining aspect ratio
+      const scaleX = availableWidth / BASE_WIDTH;
+      const scaleY = availableHeight / BASE_HEIGHT;
+      const newScale = Math.min(scaleX, scaleY);
+
+      const newWidth = Math.floor(BASE_WIDTH * newScale);
+      const newHeight = Math.floor(BASE_HEIGHT * newScale);
+
+      setCanvasWidth(newWidth);
+      setCanvasHeight(newHeight);
+      setScale(newScale);
+    };
+
+    updateCanvasSize();
+    window.addEventListener('resize', updateCanvasSize);
+
+    // Use timeout to ensure DOM is ready
+    const timeoutId = setTimeout(updateCanvasSize, 100);
+
+    return () => {
+      window.removeEventListener('resize', updateCanvasSize);
+      clearTimeout(timeoutId);
+    };
   }, []);
+
+  // Load lesson and start animation
+  const startLesson = (lessonData: LessonResponse) => {
+    setLesson(lessonData);
+    setElements([]);
+    setCurrentCaption('');
+    setCurrentTime(0);
+    setIsPlaying(true);
+    startTimeRef.current = performance.now();
+  };
+
+  // Stop lesson animation
+  const stopLesson = () => {
+    setIsPlaying(false);
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
+    }
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+  };
+
+  // Reset everything
+  const resetLesson = () => {
+    stopLesson();
+    setElements([]);
+    setCurrentCaption('');
+    setCurrentTime(0);
+    setLesson(null);
+    startTimeRef.current = null;
+  };
+
+  // Animation loop
+  useEffect(() => {
+    if (!isPlaying || !lesson || !startTimeRef.current) return;
+
+    const animate = (timestamp: number) => {
+      if (!startTimeRef.current) return;
+      
+      const elapsed = (timestamp - startTimeRef.current) / 1000; // Convert to seconds
+      setCurrentTime(elapsed);
+
+      // Check if lesson is complete
+      if (elapsed >= lesson.totalDuration) {
+        setIsPlaying(false);
+        return;
+      }
+
+      // Update drawings with animation progress
+      const newElements: DrawingElement[] = [];
+      lesson.drawings.forEach((instruction) => {
+        if (elapsed >= instruction.timestamp) {
+          const timeSinceStart = elapsed - instruction.timestamp;
+          const animDuration = instruction.duration || 0.5; // Default 0.5s animation
+          
+          // Calculate animation progress (0 to 1)
+          let progress = Math.min(timeSinceStart / animDuration, 1);
+          
+          // Add easing for smoother animation (ease-out)
+          progress = 1 - Math.pow(1 - progress, 3);
+          
+          newElements.push({
+            ...(instruction as DrawingElement),
+            animationProgress: progress
+          });
+        }
+      });
+      setElements(newElements);
+
+      // Update captions - show caption if current time is within its range
+      let activeCaption = '';
+      lesson.captions.forEach((caption) => {
+        if (elapsed >= caption.timestamp && elapsed < caption.timestamp + caption.duration) {
+          activeCaption = caption.text;
+        }
+      });
+      setCurrentCaption(activeCaption);
+
+      // Play audio segments at their timestamp
+      // Note: In production, you'd use actual audio files from TTS
+      lesson.audio.forEach((audioSegment) => {
+        const audioStart = audioSegment.timestamp;
+        const audioEnd = audioSegment.timestamp + audioSegment.duration;
+        
+        if (elapsed >= audioStart && elapsed < audioStart + 0.1) {
+          // Audio would start here (simulate with console log)
+          console.log(`🔊 Speaking: "${audioSegment.text}"`);
+          
+          // In production, you would play the actual audio:
+          // if (audioSegment.audioUrl) {
+          //   const audio = new Audio(audioSegment.audioUrl);
+          //   audio.play();
+          //   audioRef.current = audio;
+          // }
+        }
+      });
+
+      animationRef.current = requestAnimationFrame(animate);
+    };
+
+    animationRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
+  }, [isPlaying, lesson]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -249,20 +231,26 @@ const Whiteboard = () => {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+    // Save the context state
+    ctx.save();
+
+    // Apply scaling transformation - all drawing coordinates are scaled
+    ctx.scale(scale, scale);
+
     // Draw grid pattern (like a real whiteboard)
     ctx.strokeStyle = '#f0f0f0';
     ctx.lineWidth = 1;
     const gridSize = 30;
-    for (let x = 0; x < canvas.width; x += gridSize) {
+    for (let x = 0; x < BASE_WIDTH; x += gridSize) {
       ctx.beginPath();
       ctx.moveTo(x, 0);
-      ctx.lineTo(x, canvas.height);
+      ctx.lineTo(x, BASE_HEIGHT);
       ctx.stroke();
     }
-    for (let y = 0; y < canvas.height; y += gridSize) {
+    for (let y = 0; y < BASE_HEIGHT; y += gridSize) {
       ctx.beginPath();
       ctx.moveTo(0, y);
-      ctx.lineTo(canvas.width, y);
+      ctx.lineTo(BASE_WIDTH, y);
       ctx.stroke();
     }
 
@@ -274,39 +262,113 @@ const Whiteboard = () => {
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
 
+      const progress = element.animationProgress !== undefined ? element.animationProgress : 1;
+
       switch (element.type) {
         case 'line':
           if (element.points && element.points.length > 1) {
-            ctx.beginPath();
-            ctx.moveTo(element.points[0].x, element.points[0].y);
-            for (let i = 1; i < element.points.length; i++) {
-              ctx.lineTo(element.points[i].x, element.points[i].y);
+            // Animate line drawing
+            const totalPoints = element.points.length;
+            
+            if (totalPoints === 2) {
+              // Simple 2-point line - interpolate directly
+              const startPoint = element.points[0];
+              const endPoint = element.points[1];
+              
+              const currentX = startPoint.x + (endPoint.x - startPoint.x) * progress;
+              const currentY = startPoint.y + (endPoint.y - startPoint.y) * progress;
+              
+              ctx.beginPath();
+              ctx.moveTo(startPoint.x, startPoint.y);
+              ctx.lineTo(currentX, currentY);
+              ctx.stroke();
+            } else {
+              // Multi-point line - animate through points
+              const pointsToShow = Math.max(2, Math.floor(totalPoints * progress));
+              
+              ctx.beginPath();
+              ctx.moveTo(element.points[0].x, element.points[0].y);
+              
+              for (let i = 1; i < pointsToShow - 1; i++) {
+                ctx.lineTo(element.points[i].x, element.points[i].y);
+              }
+              
+              // Interpolate the last segment for smooth animation
+              if (pointsToShow < totalPoints) {
+                const lastCompleteIdx = pointsToShow - 1;
+                const nextIdx = Math.min(pointsToShow, totalPoints - 1);
+                const segmentProgress = (totalPoints * progress) - lastCompleteIdx;
+                
+                const x = element.points[lastCompleteIdx].x + 
+                         (element.points[nextIdx].x - element.points[lastCompleteIdx].x) * segmentProgress;
+                const y = element.points[lastCompleteIdx].y + 
+                         (element.points[nextIdx].y - element.points[lastCompleteIdx].y) * segmentProgress;
+                
+                ctx.lineTo(x, y);
+              } else {
+                ctx.lineTo(element.points[totalPoints - 1].x, element.points[totalPoints - 1].y);
+              }
+              
+              ctx.stroke();
             }
-            ctx.stroke();
           }
           break;
 
         case 'circle':
           if (element.start && element.radius) {
+            // Animate circle drawing (arc growing from 0 to 2π)
+            const endAngle = 2 * Math.PI * progress;
             ctx.beginPath();
-            ctx.arc(element.start.x, element.start.y, element.radius, 0, 2 * Math.PI);
+            ctx.arc(element.start.x, element.start.y, element.radius, 0, endAngle);
             ctx.stroke();
           }
           break;
 
         case 'rectangle':
           if (element.start && element.width && element.height) {
-            ctx.strokeRect(element.start.x, element.start.y, element.width, element.height);
+            // Animate rectangle drawing (trace the outline)
+            const perimeter = 2 * (element.width + element.height);
+            const drawLength = perimeter * progress;
+            
+            ctx.beginPath();
+            ctx.moveTo(element.start.x, element.start.y);
+            
+            if (drawLength <= element.width) {
+              // Drawing top edge
+              ctx.lineTo(element.start.x + drawLength, element.start.y);
+            } else if (drawLength <= element.width + element.height) {
+              // Drawing right edge
+              ctx.lineTo(element.start.x + element.width, element.start.y);
+              ctx.lineTo(element.start.x + element.width, element.start.y + (drawLength - element.width));
+            } else if (drawLength <= 2 * element.width + element.height) {
+              // Drawing bottom edge
+              ctx.lineTo(element.start.x + element.width, element.start.y);
+              ctx.lineTo(element.start.x + element.width, element.start.y + element.height);
+              ctx.lineTo(element.start.x + element.width - (drawLength - element.width - element.height), 
+                        element.start.y + element.height);
+            } else {
+              // Drawing left edge
+              ctx.lineTo(element.start.x + element.width, element.start.y);
+              ctx.lineTo(element.start.x + element.width, element.start.y + element.height);
+              ctx.lineTo(element.start.x, element.start.y + element.height);
+              ctx.lineTo(element.start.x, 
+                        element.start.y + element.height - (drawLength - 2 * element.width - element.height));
+            }
+            
+            ctx.stroke();
           }
           break;
 
         case 'text':
           if (element.start && element.text) {
-            // Determine font size based on content or explicit fontSize
+            // Animate text appearing character by character
             const fontSize = element.fontSize || 20;
             const isTitle = element.text.includes('Theorem') || element.text.includes('Example');
             ctx.font = isTitle ? `bold ${fontSize + 4}px Arial` : `${fontSize}px Arial`;
-            ctx.fillText(element.text, element.start.x, element.start.y);
+            
+            const charsToShow = Math.ceil(element.text.length * progress);
+            const visibleText = element.text.substring(0, charsToShow);
+            ctx.fillText(visibleText, element.start.x, element.start.y);
           }
           break;
 
@@ -314,36 +376,56 @@ const Whiteboard = () => {
           if (element.start && element.end) {
             const headLength = 15;
             const angle = Math.atan2(element.end.y - element.start.y, element.end.x - element.start.x);
+            const lineLength = Math.sqrt(
+              Math.pow(element.end.x - element.start.x, 2) + 
+              Math.pow(element.end.y - element.start.y, 2)
+            );
+
+            // Animate line growing from start to end
+            const currentLength = lineLength * Math.min(progress * 1.2, 1); // Line grows faster
+            const currentEndX = element.start.x + Math.cos(angle) * currentLength;
+            const currentEndY = element.start.y + Math.sin(angle) * currentLength;
 
             // Draw line
             ctx.beginPath();
             ctx.moveTo(element.start.x, element.start.y);
-            ctx.lineTo(element.end.x, element.end.y);
+            ctx.lineTo(currentEndX, currentEndY);
             ctx.stroke();
 
-            // Draw arrowhead
-            ctx.beginPath();
-            ctx.moveTo(element.end.x, element.end.y);
-            ctx.lineTo(
-              element.end.x - headLength * Math.cos(angle - Math.PI / 6),
-              element.end.y - headLength * Math.sin(angle - Math.PI / 6)
-            );
-            ctx.moveTo(element.end.x, element.end.y);
-            ctx.lineTo(
-              element.end.x - headLength * Math.cos(angle + Math.PI / 6),
-              element.end.y - headLength * Math.sin(angle + Math.PI / 6)
-            );
-            ctx.stroke();
+            // Draw arrowhead only when line is mostly complete
+            if (progress > 0.7) {
+              const headProgress = (progress - 0.7) / 0.3; // Fade in arrowhead
+              ctx.globalAlpha = headProgress;
+              
+              ctx.beginPath();
+              ctx.moveTo(element.end.x, element.end.y);
+              ctx.lineTo(
+                element.end.x - headLength * Math.cos(angle - Math.PI / 6),
+                element.end.y - headLength * Math.sin(angle - Math.PI / 6)
+              );
+              ctx.moveTo(element.end.x, element.end.y);
+              ctx.lineTo(
+                element.end.x - headLength * Math.cos(angle + Math.PI / 6),
+                element.end.y - headLength * Math.sin(angle + Math.PI / 6)
+              );
+              ctx.stroke();
+              
+              ctx.globalAlpha = 1;
+            }
           }
           break;
 
         case 'curve':
           if (element.points && element.points.length > 2) {
+            // Animate curve drawing
+            const totalCurvePoints = element.points.length;
+            const curvePointsToShow = Math.max(2, Math.ceil(totalCurvePoints * progress));
+            
             ctx.beginPath();
             ctx.moveTo(element.points[0].x, element.points[0].y);
 
             // Use quadratic curves for smooth drawing
-            for (let i = 1; i < element.points.length - 1; i++) {
+            for (let i = 1; i < Math.min(curvePointsToShow, element.points.length - 1); i++) {
               const currentPoint = element.points[i];
               const nextPoint = element.points[i + 1];
               
@@ -354,23 +436,33 @@ const Whiteboard = () => {
               ctx.quadraticCurveTo(currentPoint.x, currentPoint.y, controlX, controlY);
             }
 
-            // Draw to the last point
-            const lastPoint = element.points[element.points.length - 1];
-            ctx.lineTo(lastPoint.x, lastPoint.y);
+            // Draw to the last visible point
+            if (curvePointsToShow >= totalCurvePoints) {
+              const lastPoint = element.points[element.points.length - 1];
+              ctx.lineTo(lastPoint.x, lastPoint.y);
+            }
             ctx.stroke();
           }
           break;
 
         case 'polygon':
           if (element.points && element.points.length > 2) {
+            // Animate polygon drawing
+            const totalPolyPoints = element.points.length;
+            const polyPointsToShow = Math.max(2, Math.ceil(totalPolyPoints * progress));
+            
             ctx.beginPath();
             ctx.moveTo(element.points[0].x, element.points[0].y);
-            for (let i = 1; i < element.points.length; i++) {
+            for (let i = 1; i < polyPointsToShow; i++) {
               ctx.lineTo(element.points[i].x, element.points[i].y);
             }
-            ctx.closePath();
             
-            if (element.fill) {
+            // Close path only when fully drawn
+            if (progress >= 1) {
+              ctx.closePath();
+            }
+            
+            if (element.fill && progress >= 1) {
               const prevAlpha = ctx.globalAlpha;
               ctx.globalAlpha = element.opacity || 1;
               ctx.fill();
@@ -382,19 +474,31 @@ const Whiteboard = () => {
 
         case 'highlighter':
           if (element.start && element.width && element.height) {
+            // Animate highlighter expanding from left to right
+            const currentWidth = element.width * progress;
             const prevAlpha = ctx.globalAlpha;
-            ctx.globalAlpha = element.opacity || 0.3;
-            ctx.fillRect(element.start.x, element.start.y, element.width, element.height);
+            ctx.globalAlpha = (element.opacity || 0.3) * progress; // Fade in as well
+            ctx.fillRect(element.start.x, element.start.y, currentWidth, element.height);
             ctx.globalAlpha = prevAlpha;
           }
           break;
 
         case 'dashed-line':
           if (element.start && element.end) {
+            // Animate dashed line growing from start to end
+            const lineLength = Math.sqrt(
+              Math.pow(element.end.x - element.start.x, 2) + 
+              Math.pow(element.end.y - element.start.y, 2)
+            );
+            const currentLength = lineLength * progress;
+            const angle = Math.atan2(element.end.y - element.start.y, element.end.x - element.start.x);
+            const currentEndX = element.start.x + Math.cos(angle) * currentLength;
+            const currentEndY = element.start.y + Math.sin(angle) * currentLength;
+            
             ctx.setLineDash(element.dashPattern || [5, 5]);
             ctx.beginPath();
             ctx.moveTo(element.start.x, element.start.y);
-            ctx.lineTo(element.end.x, element.end.y);
+            ctx.lineTo(currentEndX, currentEndY);
             ctx.stroke();
             ctx.setLineDash([]); // Reset
           }
@@ -403,30 +507,40 @@ const Whiteboard = () => {
         case 'angle':
           if (element.start && element.degrees && element.radius) {
             const angleRad = (element.degrees * Math.PI) / 180;
+            const currentAngleRad = angleRad * progress;
             
-            // Draw arc
+            // Draw arc (animated)
             ctx.beginPath();
-            ctx.arc(element.start.x, element.start.y, element.radius, 0, angleRad);
+            ctx.arc(element.start.x, element.start.y, element.radius, 0, currentAngleRad);
             ctx.stroke();
 
             // Draw angle lines
             ctx.beginPath();
             ctx.moveTo(element.start.x, element.start.y);
             ctx.lineTo(element.start.x + element.radius, element.start.y);
-            ctx.moveTo(element.start.x, element.start.y);
-            ctx.lineTo(
-              element.start.x + element.radius * Math.cos(angleRad),
-              element.start.y + element.radius * Math.sin(angleRad)
-            );
+            
+            if (progress > 0.3) {
+              ctx.moveTo(element.start.x, element.start.y);
+              ctx.lineTo(
+                element.start.x + element.radius * Math.cos(currentAngleRad),
+                element.start.y + element.radius * Math.sin(currentAngleRad)
+              );
+            }
             ctx.stroke();
 
-            // Draw degree label
-            ctx.font = '14px Arial';
-            ctx.fillText(
-              `${element.degrees}°`,
-              element.start.x + element.radius * 0.5,
-              element.start.y - 10
-            );
+            // Draw degree label (fade in at end)
+            if (progress > 0.7) {
+              const labelAlpha = (progress - 0.7) / 0.3;
+              const prevAlpha = ctx.globalAlpha;
+              ctx.globalAlpha = labelAlpha;
+              ctx.font = '14px Arial';
+              ctx.fillText(
+                `${element.degrees}°`,
+                element.start.x + element.radius * 0.5,
+                element.start.y - 10
+              );
+              ctx.globalAlpha = prevAlpha;
+            }
           }
           break;
 
@@ -435,78 +549,140 @@ const Whiteboard = () => {
             const centerX = element.start.x + element.width / 2;
             const centerY = element.start.y + element.height / 2;
 
+            // Animate axes drawing from center outward
+            const xProgress = Math.min(progress * 2, 1); // X axis draws first
+            const yProgress = Math.max(0, (progress - 0.5) * 2); // Y axis draws second
+
             // Draw X axis
+            const xLength = element.width / 2;
             ctx.beginPath();
-            ctx.moveTo(element.start.x, centerY);
-            ctx.lineTo(element.start.x + element.width, centerY);
+            ctx.moveTo(centerX, centerY);
+            ctx.lineTo(centerX - xLength * xProgress, centerY);
+            ctx.moveTo(centerX, centerY);
+            ctx.lineTo(centerX + xLength * xProgress, centerY);
             ctx.stroke();
 
             // Draw Y axis
+            const yLength = element.height / 2;
             ctx.beginPath();
-            ctx.moveTo(centerX, element.start.y);
-            ctx.lineTo(centerX, element.start.y + element.height);
+            ctx.moveTo(centerX, centerY);
+            ctx.lineTo(centerX, centerY - yLength * yProgress);
+            ctx.moveTo(centerX, centerY);
+            ctx.lineTo(centerX, centerY + yLength * yProgress);
             ctx.stroke();
 
-            // Draw arrow heads
-            const arrowSize = 8;
-            // X-axis arrow
-            ctx.beginPath();
-            ctx.moveTo(element.start.x + element.width, centerY);
-            ctx.lineTo(element.start.x + element.width - arrowSize, centerY - arrowSize / 2);
-            ctx.lineTo(element.start.x + element.width - arrowSize, centerY + arrowSize / 2);
-            ctx.closePath();
-            ctx.fill();
+            // Draw arrow heads only when fully drawn
+            if (progress >= 0.9) {
+              const arrowAlpha = (progress - 0.9) / 0.1;
+              const prevAlpha = ctx.globalAlpha;
+              ctx.globalAlpha = arrowAlpha;
+              
+              const arrowSize = 8;
+              // X-axis arrow
+              ctx.beginPath();
+              ctx.moveTo(element.start.x + element.width, centerY);
+              ctx.lineTo(element.start.x + element.width - arrowSize, centerY - arrowSize / 2);
+              ctx.lineTo(element.start.x + element.width - arrowSize, centerY + arrowSize / 2);
+              ctx.closePath();
+              ctx.fill();
 
-            // Y-axis arrow
-            ctx.beginPath();
-            ctx.moveTo(centerX, element.start.y);
-            ctx.lineTo(centerX - arrowSize / 2, element.start.y + arrowSize);
-            ctx.lineTo(centerX + arrowSize / 2, element.start.y + arrowSize);
-            ctx.closePath();
-            ctx.fill();
+              // Y-axis arrow
+              ctx.beginPath();
+              ctx.moveTo(centerX, element.start.y);
+              ctx.lineTo(centerX - arrowSize / 2, element.start.y + arrowSize);
+              ctx.lineTo(centerX + arrowSize / 2, element.start.y + arrowSize);
+              ctx.closePath();
+              ctx.fill();
 
-            // Labels
-            ctx.font = '12px Arial';
-            ctx.fillText('x', element.start.x + element.width - 10, centerY + 15);
-            ctx.fillText('y', centerX + 10, element.start.y + 10);
-            ctx.fillText('0', centerX - 15, centerY + 15);
+              // Labels
+              ctx.font = '12px Arial';
+              ctx.fillText('x', element.start.x + element.width - 10, centerY + 15);
+              ctx.fillText('y', centerX + 10, element.start.y + 10);
+              ctx.fillText('0', centerX - 15, centerY + 15);
+              
+              ctx.globalAlpha = prevAlpha;
+            }
           }
           break;
       }
     });
-  }, [elements]);
+
+    // Restore the context state (removes scaling)
+    ctx.restore();
+  }, [elements, scale]);
 
   return (
-    <div className="w-full h-full flex flex-col">
+    <div className="w-full h-full flex flex-col relative">
       <div className="bg-gray-800 text-white px-6 py-3 flex items-center justify-between shadow-lg">
-        <h2 className="text-xl font-semibold">AI Tutor - Whiteboard</h2>
+        {/* <h2 className="text-xl font-semibold">AI Tutor - Whiteboard</h2> */}
         <div className="flex gap-3">
           <button
-            onClick={() => setElements(sampleData)}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+            onClick={() => startLesson(SAMPLE_LESSON)}
+            disabled={isPlaying}
+            className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg transition-colors"
+          > 
+            {isPlaying ? '▶ Playing...' : '▶ Start'}
+          </button>
+          <button
+            onClick={stopLesson}
+            disabled={!isPlaying}
+            className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg transition-colors"
           >
-            Load Sample
+            ⏸ 
+          </button>
+          <button
+            onClick={resetLesson}
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+          >
+            ⏹ 
           </button>
           <button
             onClick={() => setElements([])}
-            className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+            className="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg transition-colors"
           >
             Clear
           </button>
         </div>
       </div>
+
+      {/* Progress Bar */}
+      {lesson && (
+        <div className="bg-gray-700 px-6 py-2">
+          <div className="flex items-center gap-4">
+            <span className="text-white text-sm min-w-[80px]">
+              {currentTime.toFixed(1)}s / {lesson.totalDuration}s
+            </span>
+            <div className="flex-1 bg-gray-600 rounded-full h-2">
+              <div
+                className="bg-blue-500 h-2 rounded-full transition-all duration-100"
+                style={{ width: `${(currentTime / lesson.totalDuration) * 100}%` }}
+              />
+            </div>
+            <span className="text-white text-sm font-medium">{lesson.topic}</span>
+          </div>
+        </div>
+      )}
       
-      <div className="flex-1 flex items-center justify-center bg-gray-100 p-4">
-        <div className="bg-white rounded-lg shadow-2xl border-4 border-gray-300" style={{ padding: '20px' }}>
+      <div ref={containerRef} className="flex-1 flex items-center justify-center bg-gray-100 p-2 sm:p-4 overflow-hidden w-full">
+        <div className="bg-white rounded-lg shadow-2xl border-4 border-gray-300 p-2 sm:p-4 max-w-full max-h-full flex items-center justify-center">
           <canvas
             ref={canvasRef}
-            width={800}
-            height={600}
-            className="border-2 border-gray-200 rounded cursor-crosshair"
+            width={canvasWidth}
+            height={canvasHeight}
+            className="border-2 border-gray-200 rounded cursor-crosshair max-w-full max-h-full"
+            style={{ display: 'block' }}
           />
         </div>
       </div>
 
+      {/* Caption Display - Absolutely positioned at bottom, centered */}
+      {currentCaption && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex justify-center">
+          <div className="bg-gray-900/45  text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg shadow-lg backdrop-blur-sm">
+            <p className="text-base sm:text-lg font-medium whitespace-nowrap">{currentCaption}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
