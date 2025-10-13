@@ -9,4 +9,7 @@ router.post('/assessment-questions', aiController.getAssessmentQuestions.bind(ai
 // POST /api/ai/lesson-outline
 router.post('/lesson-outline', aiController.getLessonOutline.bind(aiController));
 
+// POST /api/ai/whiteboard-content
+router.post('/whiteboard-content', aiController.getWhiteboardContent.bind(aiController));
+
 export default router;
