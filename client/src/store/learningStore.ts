@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { useState, useEffect } from 'react';
 import { AssessmentQuestion } from '@/api';
 
 interface LearningState {
@@ -82,3 +83,29 @@ export const useLearningStore = create<LearningState>()(
     }
   )
 );
+
+// Helper hook to check if store has been hydrated from localStorage
+export const useStoreHydration = () => {
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    // Wait for store to hydrate from localStorage
+    const unsubHydrate = useLearningStore.persist.onHydrate(() => {
+      setHydrated(false);
+    });
+    
+    const unsubFinishHydration = useLearningStore.persist.onFinishHydration(() => {
+      setHydrated(true);
+    });
+
+    // Set hydrated to true if already hydrated
+    setHydrated(true);
+
+    return () => {
+      unsubHydrate?.();
+      unsubFinishHydration?.();
+    };
+  }, []);
+
+  return hydrated;
+};
