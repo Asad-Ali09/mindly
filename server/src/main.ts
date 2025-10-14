@@ -1,4 +1,5 @@
 import express, { Request, Response } from 'express';
+import cors from 'cors';
 import config from './config/config';
 import routes from './routes';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler';
@@ -6,7 +7,16 @@ import { errorHandler, notFoundHandler } from './middlewares/errorHandler';
 const app = express();
 const PORT = config.port;
 
+app.use(cors({
+  origin: config.FRONTEND_URL,
+  // credentials: true,
+}));
+
+
 app.use(express.json());
+
+
+
 
 app.get('/', (req: Request, res: Response) => {
   res.send('Hello World');
