@@ -8,6 +8,17 @@ interface Point {
   y: number;
 }
 
+interface WhiteboardProps {
+  isPlaying: boolean;
+  onStart: () => void;
+  onStop: () => void;
+  onReset: () => void;
+  onClear: () => void;
+  currentTime: number;
+  onTimeUpdate: (time: number) => void;
+  lesson: LessonResponse | null;
+}
+
 interface DrawingElement {
   type: 
     | 'line'           // Straight lines for diagrams
@@ -43,14 +54,11 @@ interface DrawingElement {
   animationProgress?: number; // 0 to 1, for animating the drawing
 }
 
-const Whiteboard = () => {
+const Whiteboard: React.FC<WhiteboardProps> = ({ isPlaying, onStart, onStop, onReset, onClear, currentTime, onTimeUpdate, lesson }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [elements, setElements] = useState<DrawingElement[]>([]);
   const [currentCaption, setCurrentCaption] = useState<string>('');
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [lesson, setLesson] = useState<LessonResponse | null>(null);
   const animationRef = useRef<number | null>(null);
   const startTimeRef = useRef<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -110,52 +118,23 @@ const Whiteboard = () => {
     };
   }, []);
 
-  // Load lesson and start animation
-  const startLesson = (lessonData: LessonResponse) => {
-    setLesson(lessonData);
-    setElements([]);
-    setCurrentCaption('');
-    setCurrentTime(0);
-    setIsPlaying(true);
-    startTimeRef.current = performance.now();
-  };
-
-  // Stop lesson animation
-  const stopLesson = () => {
-    setIsPlaying(false);
-    if (animationRef.current) {
-      cancelAnimationFrame(animationRef.current);
-      animationRef.current = null;
-    }
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
-    }
-  };
-
-  // Reset everything
-  const resetLesson = () => {
-    stopLesson();
-    setElements([]);
-    setCurrentCaption('');
-    setCurrentTime(0);
-    setLesson(null);
-    startTimeRef.current = null;
-  };
-
   // Animation loop
   useEffect(() => {
-    if (!isPlaying || !lesson || !startTimeRef.current) return;
+    if (!isPlaying || !lesson) return;
+    
+    if (!startTimeRef.current) {
+      startTimeRef.current = performance.now();
+    }
 
     const animate = (timestamp: number) => {
       if (!startTimeRef.current) return;
       
       const elapsed = (timestamp - startTimeRef.current) / 1000; // Convert to seconds
-      setCurrentTime(elapsed);
+      onTimeUpdate(elapsed);
 
       // Check if lesson is complete
       if (elapsed >= lesson.totalDuration) {
-        setIsPlaying(false);
+        onStop();
         return;
       }
 
@@ -218,7 +197,33 @@ const Whiteboard = () => {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [isPlaying, lesson]);
+  }, [isPlaying, lesson, onStop, onTimeUpdate]);
+  
+  // Reset animation start time when lesson changes or stops
+  useEffect(() => {
+    if (!isPlaying) {
+      startTimeRef.current = null;
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+        animationRef.current = null;
+      }
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    }
+  }, [isPlaying]);
+  
+  // Clear elements when lesson changes
+  useEffect(() => {
+    setElements([]);
+    setCurrentCaption('');
+  }, [lesson]);
+  
+  // Handle clear action from parent
+  useEffect(() => {
+    // This will be triggered by key change in parent
+  }, [onClear]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -613,55 +618,6 @@ const Whiteboard = () => {
 
   return (
     <div className="w-full h-full flex flex-col relative">
-      <div className="bg-gray-800 text-white px-6 py-3 flex items-center justify-between shadow-lg">
-        {/* <h2 className="text-xl font-semibold">AI Tutor - Whiteboard</h2> */}
-        <div className="flex gap-3">
-          <button
-            onClick={() => startLesson(SAMPLE_LESSON)}
-            disabled={isPlaying}
-            className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg transition-colors"
-          > 
-            {isPlaying ? '▶ Playing...' : '▶ Start'}
-          </button>
-          <button
-            onClick={stopLesson}
-            disabled={!isPlaying}
-            className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg transition-colors"
-          >
-            ⏸ 
-          </button>
-          <button
-            onClick={resetLesson}
-            className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
-          >
-            ⏹ 
-          </button>
-          <button
-            onClick={() => setElements([])}
-            className="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg transition-colors"
-          >
-            Clear
-          </button>
-        </div>
-      </div>
-
-      {/* Progress Bar */}
-      {lesson && (
-        <div className="bg-gray-700 px-6 py-2">
-          <div className="flex items-center gap-4">
-            <span className="text-white text-sm min-w-[80px]">
-              {currentTime.toFixed(1)}s / {lesson.totalDuration}s
-            </span>
-            <div className="flex-1 bg-gray-600 rounded-full h-2">
-              <div
-                className="bg-blue-500 h-2 rounded-full transition-all duration-100"
-                style={{ width: `${(currentTime / lesson.totalDuration) * 100}%` }}
-              />
-            </div>
-            <span className="text-white text-sm font-medium">{lesson.topic}</span>
-          </div>
-        </div>
-      )}
       
       <div ref={containerRef} className="flex-1 flex items-center justify-center bg-gray-100 p-2 sm:p-4 overflow-hidden w-full">
         <div className="bg-white rounded-lg shadow-2xl border-4 border-gray-300 p-2 sm:p-4 max-w-full max-h-full flex items-center justify-center">
