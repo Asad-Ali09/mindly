@@ -1,0 +1,9 @@
+fastapi==0.115.0
+uvicorn[standard]==0.31.0
+pydantic==2.9.2
+python-multipart==0.0.12
+# Install PyTorch CPU version first to avoid CUDA dependencies
+torch==2.1.0
+torchaudio==2.1.0
+# Install TTS after PyTorch
+TTS==0.22.0
