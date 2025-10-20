@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { useState, useEffect } from 'react';
 import { AssessmentQuestion } from '@/api';
+import { LessonResponse } from '@/types/lesson';
 
 interface LearningState {
   // Topic state
@@ -28,11 +29,18 @@ interface LearningState {
   nextPage: () => void;
   previousPage: () => void;
   
+  // Whiteboard content cache (keyed by pageId)
+  whiteboardContentCache: Record<string, LessonResponse>;
+  setWhiteboardContent: (pageId: string, content: LessonResponse) => void;
+  clearWhiteboardCache: () => void;
+  
   // Loading states
   isLoadingQuestions: boolean;
   setIsLoadingQuestions: (loading: boolean) => void;
   isLoadingOutline: boolean;
   setIsLoadingOutline: (loading: boolean) => void;
+  isLoadingWhiteboard: boolean;
+  setIsLoadingWhiteboard: (loading: boolean) => void;
   
   // Reset function to clear all state
   reset: () => void;
@@ -45,8 +53,10 @@ const initialState = {
   lessonOutline: null,
   currentSectionIndex: 0,
   currentPageIndex: 0,
+  whiteboardContentCache: {},
   isLoadingQuestions: false,
   isLoadingOutline: false,
+  isLoadingWhiteboard: false,
 };
 
 export const useLearningStore = create<LearningState>()(
@@ -128,9 +138,21 @@ export const useLearningStore = create<LearningState>()(
           return state;
         }),
       
+      // Whiteboard content cache actions
+      setWhiteboardContent: (pageId: string, content: LessonResponse) =>
+        set((state) => ({
+          whiteboardContentCache: {
+            ...state.whiteboardContentCache,
+            [pageId]: content,
+          },
+        })),
+      
+      clearWhiteboardCache: () => set({ whiteboardContentCache: {} }),
+      
       // Loading actions
       setIsLoadingQuestions: (loading: boolean) => set({ isLoadingQuestions: loading }),
       setIsLoadingOutline: (loading: boolean) => set({ isLoadingOutline: loading }),
+      setIsLoadingWhiteboard: (loading: boolean) => set({ isLoadingWhiteboard: loading }),
       
       // Reset action
       reset: () => set(initialState),
@@ -144,6 +166,7 @@ export const useLearningStore = create<LearningState>()(
         lessonOutline: state.lessonOutline,
         currentSectionIndex: state.currentSectionIndex,
         currentPageIndex: state.currentPageIndex,
+        whiteboardContentCache: state.whiteboardContentCache,
       }), // Only persist these fields
     }
   )

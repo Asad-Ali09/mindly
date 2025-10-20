@@ -170,7 +170,7 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ isPlaying, onStart, onStop, onR
 
       // Play audio segments at their timestamp
       // Note: In production, you'd use actual audio files from TTS
-      lesson.audio.forEach((audioSegment) => {
+      lesson.audio?.forEach((audioSegment) => {
         const audioStart = audioSegment.timestamp;
         const audioEnd = audioSegment.timestamp + audioSegment.duration;
         

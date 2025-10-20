@@ -32,6 +32,7 @@ const LessonOutlineOverlay = () => {
   const currentSectionIndex = useLearningStore((state) => state.currentSectionIndex);
   const currentPageIndex = useLearningStore((state) => state.currentPageIndex);
   const setCurrentPage = useLearningStore((state) => state.setCurrentPage);
+  const isLoadingWhiteboard = useLearningStore((state) => state.isLoadingWhiteboard);
 
   const toggleSection = (sectionId: string) => {
     setExpandedSections((prev) => {
@@ -140,8 +141,12 @@ const LessonOutlineOverlay = () => {
                         {section.pages.map((page, pageIndex) => (
                           <div
                             key={page.id}
-                            onClick={() => handlePageClick(index, pageIndex)}
-                            className={`pl-3 border-l-2 py-1 cursor-pointer transition-all ${
+                            onClick={() => !isLoadingWhiteboard && handlePageClick(index, pageIndex)}
+                            className={`pl-3 border-l-2 py-1 transition-all ${
+                              isLoadingWhiteboard 
+                                ? 'cursor-not-allowed opacity-50' 
+                                : 'cursor-pointer'
+                            } ${
                               isCurrentPage(index, pageIndex)
                                 ? 'border-blue-500 bg-blue-50'
                                 : 'border-blue-300 hover:bg-gray-50'

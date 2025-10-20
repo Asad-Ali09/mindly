@@ -56,11 +56,13 @@ export interface AudioSegment {
 }
 
 export interface LessonResponse {
+  pageId?: string;
+  pageTitle?: string;
   topic: string;
   totalDuration: number; // Total lesson duration in seconds
   drawings: DrawingInstruction[];
   captions: CaptionSegment[];
-  audio: AudioSegment[];
+  audio?: AudioSegment[];
 }
 
 // Sample lesson response for "Pythagorean Theorem"
