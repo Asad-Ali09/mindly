@@ -89,31 +89,31 @@ class AIController {
   }
 
   /**
-   * Generate whiteboard content for a specific subsection
+   * Generate whiteboard content for a specific page
    * POST /api/ai/whiteboard-content
    * Body: {
-   *   subsectionId: string,
+   *   pageId: string,
    *   topic: string,
-   *   subsectionTitle: string,
-   *   subsectionDescription: string,
+   *   pageTitle: string,
+   *   pageDescription: string,
    *   estimatedDuration: string
    * }
    */
   async getWhiteboardContent(req: Request, res: Response) {
     try {
       const {
-        subsectionId,
+        pageId,
         topic,
-        subsectionTitle,
-        subsectionDescription,
+        pageTitle,
+        pageDescription,
         estimatedDuration,
       } = req.body;
 
       // Validation
-      if (!subsectionId || typeof subsectionId !== 'string') {
+      if (!pageId || typeof pageId !== 'string') {
         return res.status(400).json({
           success: false,
-          message: 'subsectionId is required and must be a string',
+          message: 'pageId is required and must be a string',
         });
       }
 
@@ -124,36 +124,36 @@ class AIController {
         });
       }
 
-      if (!subsectionTitle || typeof subsectionTitle !== 'string' || subsectionTitle.trim() === '') {
+      if (!pageTitle || typeof pageTitle !== 'string' || pageTitle.trim() === '') {
         return res.status(400).json({
           success: false,
-          message: 'subsectionTitle is required and must be a non-empty string',
+          message: 'pageTitle is required and must be a non-empty string',
         });
       }
 
-      if (!subsectionDescription || typeof subsectionDescription !== 'string' || subsectionDescription.trim() === '') {
+      if (!pageDescription || typeof pageDescription !== 'string' || pageDescription.trim() === '') {
         return res.status(400).json({
           success: false,
-          message: 'subsectionDescription is required and must be a non-empty string',
+          message: 'pageDescription is required and must be a non-empty string',
         });
       }
 
       if (!estimatedDuration || typeof estimatedDuration !== 'string') {
         return res.status(400).json({
           success: false,
-          message: 'estimatedDuration is required and must be a string (e.g., "3 minutes")',
+          message: 'estimatedDuration is required and must be a string (e.g., "30 seconds")',
         });
       }
 
       const whiteboardContent = await aiService.generateWhiteboardContent(
         topic.trim(),
-        subsectionTitle.trim(),
-        subsectionDescription.trim(),
+        pageTitle.trim(),
+        pageDescription.trim(),
         estimatedDuration.trim()
       );
 
-      // Set the subsection ID
-      whiteboardContent.subsectionId = subsectionId;
+      // Set the page ID
+      whiteboardContent.pageId = pageId;
 
       return res.status(200).json({
         success: true,

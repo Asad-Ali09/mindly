@@ -42,10 +42,10 @@ export interface LessonOutlineResponse {
 }
 
 export interface WhiteboardContentRequest {
-  subsectionId: string;
+  pageId: string;
   topic: string;
-  subsectionTitle: string;
-  subsectionDescription: string;
+  pageTitle: string;
+  pageDescription: string;
   estimatedDuration: string;
 }
 
@@ -94,7 +94,7 @@ class AIApi {
   }
 
   /**
-   * Generate whiteboard content for a specific subsection
+   * Generate whiteboard content for a specific page
    * POST /api/ai/whiteboard-content
    */
   async getWhiteboardContent(

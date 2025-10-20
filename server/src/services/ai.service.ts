@@ -13,18 +13,18 @@ interface AssessmentQuestion {
   type: 'single' | 'multiple';
 }
 
-interface LessonSubsection {
+interface LessonPage {
   id: string;
   title: string;
   description: string;
-  estimatedDuration: string; // e.g., "5 minutes"
+  estimatedDuration: string; // e.g., "30 seconds" - shorter durations per page
 }
 
 interface LessonSection {
   id: string;
   title: string;
   description: string;
-  subsections: LessonSubsection[];
+  pages: LessonPage[];
 }
 
 interface LessonOutline {
@@ -85,8 +85,8 @@ interface CaptionSegment {
 }
 
 interface WhiteboardContent {
-  subsectionId: string;
-  subsectionTitle: string;
+  pageId: string;
+  pageTitle: string;
   topic: string;
   totalDuration: number; // Total duration in seconds
   drawings: DrawingInstruction[];
@@ -161,68 +161,7 @@ Rules:
       return questions;
     } catch (error) {
       console.error('Error generating assessment questions:', error);
-      
-      // Fallback to sample questions if API fails
-      const sampleQuestions: AssessmentQuestion[] = [
-      {
-        id: 'q1',
-        question: `How familiar are you with ${topic}?`,
-        type: 'single',
-        options: [
-          { id: 'a', text: 'Never heard of it before' },
-          { id: 'b', text: 'Heard about it, but never used it' },
-          { id: 'c', text: 'Have some basic knowledge' },
-          { id: 'd', text: 'Use it regularly' },
-        ],
-      },
-      {
-        id: 'q2',
-        question: `What aspects of ${topic} are you most interested in? (Select all that apply)`,
-        type: 'multiple',
-        options: [
-          { id: 'a', text: 'Basic concepts and fundamentals' },
-          { id: 'b', text: 'Practical applications' },
-          { id: 'c', text: 'Advanced techniques' },
-          { id: 'd', text: 'Best practices and tips' },
-        ],
-      },
-      {
-        id: 'q3',
-        question: `What is your primary goal for learning ${topic}?`,
-        type: 'single',
-        options: [
-          { id: 'a', text: 'Personal interest and curiosity' },
-          { id: 'b', text: 'Academic requirements' },
-          { id: 'c', text: 'Professional development' },
-          { id: 'd', text: 'Working on a specific project' },
-        ],
-      },
-      {
-        id: 'q4',
-        question: `How do you prefer to learn new concepts? (Select all that apply)`,
-        type: 'multiple',
-        options: [
-          { id: 'a', text: 'Visual explanations and diagrams' },
-          { id: 'b', text: 'Step-by-step examples' },
-          { id: 'c', text: 'Theoretical understanding first' },
-          { id: 'd', text: 'Hands-on practice' },
-        ],
-      },
-      {
-        id: 'q5',
-        question: `What is your current level of expertise in related areas?`,
-        type: 'single',
-        options: [
-          { id: 'a', text: 'Complete beginner' },
-          { id: 'b', text: 'Some background knowledge' },
-          { id: 'c', text: 'Intermediate level' },
-          { id: 'd', text: 'Advanced in related fields' },
-        ],
-      },
-    ];
-
-      const numQuestions = Math.floor(Math.random() * 4) + 3; // 3-6 questions
-      return sampleQuestions.slice(0, numQuestions);
+      throw error;
     }
   }
 
@@ -231,7 +170,7 @@ Rules:
    * @param topic - The topic to teach
    * @param responses - User's answers to assessment questions
    * @param questions - The original questions (for context)
-   * @returns Detailed lesson outline with sections and subsections
+   * @returns Detailed lesson outline with sections and pages
    */
   async generateLessonOutline(
     topic: string,
@@ -263,8 +202,9 @@ ${JSON.stringify(responsesWithContext, null, 2)}
 Based on these responses, create a comprehensive step-by-step lesson outline that:
 1. Matches the student's knowledge level
 2. Addresses their learning goals and interests
-3. Builds concepts progressively
-4. Includes only the most relevant subsections needed
+3. Builds concepts progressively through multiple pages
+4. Each page represents one whiteboard screen (previous content is cleared when moving to next page)
+5. Pages should be bite-sized, focused, and progressive within each section
 
 IMPORTANT: Return ONLY valid JSON (no markdown, no code blocks, no explanations):
 
@@ -278,12 +218,12 @@ IMPORTANT: Return ONLY valid JSON (no markdown, no code blocks, no explanations)
       "id": "section1",
       "title": "Section Title",
       "description": "Brief description of what this section covers",
-      "subsections": [
+      "pages": [
         {
-          "id": "section1_sub1",
-          "title": "Subsection Title",
-          "description": "Detailed description of this subsection (2-3 sentences explaining what will be taught and why it's important)",
-          "estimatedDuration": "2 minutes"
+          "id": "section1_page1",
+          "title": "Page Title",
+          "description": "Detailed description of this page (2-3 sentences explaining what will be taught on this whiteboard page)",
+          "estimatedDuration": "30 seconds"
         }
       ]
     }
@@ -291,17 +231,30 @@ IMPORTANT: Return ONLY valid JSON (no markdown, no code blocks, no explanations)
 }
 
 Guidelines:
-- Create as many sections as needed (no fixed number - could be 2, 3, 4, or more)
-- Each section can have any number of subsections (even just 1 if that's all that's needed)
-- Each subsection will have its own whiteboard content, so make them focused and specific
-- Keep subsection durations SMALL - typically 2-4 minutes, sometimes even 1-2 minutes for simple concepts
-- Keep the outline no deeper than 2 levels (sections → subsections)
-- Use clear, descriptive titles
-- Descriptions should explain what will be covered and how
-- Break down complex topics into smaller, bite-sized subsections
-- Progress from fundamentals to more complex concepts
+- Create 2-4 sections based on the topic complexity
+- Each section MUST have 8-12 pages (this is critical for proper pacing)
+- Each page represents ONE whiteboard screen - when moving to the next page, the whiteboard is cleared
+- Keep page durations SHORT - typically 20-45 seconds per page (max 1 minute)
+- Pages within a section should build progressively on each other
+- Break down complex concepts into multiple simple pages rather than one complex page
+- Use clear, descriptive titles for each page
+- Page descriptions should explain what specific content will be shown on that whiteboard screen
+- Progress from fundamentals to more complex concepts across pages
 - Tailor the depth and pace to the student's knowledge level
-- Quality over quantity - only include what's necessary for understanding
+- Think of each page as a single slide/screen in a presentation
+- Example progression for a section on "Variables":
+  * Page 1: "What is a variable?" (definition)
+  * Page 2: "Variable anatomy" (parts of a variable)
+  * Page 3: "Creating variables" (syntax)
+  * Page 4: "Variable names" (naming rules)
+  * Page 5: "Common mistakes" (what to avoid)
+  * Page 6: "Variable types preview" (introduction)
+  * Page 7: "Numbers" (number type)
+  * Page 8: "Text" (string type)
+  * Page 9: "True/False" (boolean type)
+  * Page 10: "Practice example 1" (simple example)
+  * Page 11: "Practice example 2" (another example)
+  * Page 12: "Section summary" (recap)
 `;
 
       const result = await this.model.generateContent(prompt);
@@ -315,104 +268,44 @@ Guidelines:
       return outline;
     } catch (error) {
       console.error('Error generating lesson outline:', error);
-
-      // Fallback outline
-      return {
-        topic,
-        overallObjective: `Learn the fundamentals of ${topic}`,
-        knowledgeLevel: 'beginner',
-        totalEstimatedDuration: '15-20 minutes',
-        sections: [
-          {
-            id: 'section1',
-            title: 'Introduction',
-            description: `Understanding the basics of ${topic}`,
-            subsections: [
-              {
-                id: 'section1_sub1',
-                title: 'What is it?',
-                description: `Learn the fundamental definition and purpose of ${topic}`,
-                estimatedDuration: '3 minutes',
-              },
-              {
-                id: 'section1_sub2',
-                title: 'Why is it important?',
-                description: `Understand the real-world applications and benefits`,
-                estimatedDuration: '2 minutes',
-              },
-            ],
-          },
-          {
-            id: 'section2',
-            title: 'Core Concepts',
-            description: `Key principles and concepts of ${topic}`,
-            subsections: [
-              {
-                id: 'section2_sub1',
-                title: 'Fundamental Principles',
-                description: `Explore the basic principles that govern ${topic}`,
-                estimatedDuration: '4 minutes',
-              },
-              {
-                id: 'section2_sub2',
-                title: 'Practical Examples',
-                description: `See how these concepts apply in real scenarios`,
-                estimatedDuration: '3 minutes',
-              },
-            ],
-          },
-          {
-            id: 'section3',
-            title: 'Getting Started',
-            description: `Practical steps to begin working with ${topic}`,
-            subsections: [
-              {
-                id: 'section3_sub1',
-                title: 'First Steps',
-                description: `Learn how to get started with ${topic} in practice`,
-                estimatedDuration: '3 minutes',
-              },
-            ],
-          },
-        ],
-      };
+      throw error;
     }
   }
 
   /**
-   * Generates whiteboard content for a specific subsection
+   * Generates whiteboard content for a specific page
    * @param topic - The main topic
-   * @param subsectionTitle - Title of the subsection
-   * @param subsectionDescription - Description of what to teach
-   * @param estimatedDuration - Duration string (e.g., "3 minutes")
+   * @param pageTitle - Title of the page
+   * @param pageDescription - Description of what to teach
+   * @param estimatedDuration - Duration string (e.g., "30 seconds")
    * @returns Whiteboard content with drawings and captions
    */
   async generateWhiteboardContent(
     topic: string,
-    subsectionTitle: string,
-    subsectionDescription: string,
+    pageTitle: string,
+    pageDescription: string,
     estimatedDuration: string
   ): Promise<WhiteboardContent> {
     try {
       // Parse duration to seconds
       const durationMatch = estimatedDuration.match(/(\d+)/);
-      const durationMinutes = durationMatch ? parseInt(durationMatch[1]) : 3;
-      const totalDurationSeconds = durationMinutes * 60;
+      const durationSeconds = durationMatch ? parseInt(durationMatch[1]) : 30;
 
       const prompt = `
 You are an expert AI tutor creating animated whiteboard content for teaching.
 
 Topic: "${topic}"
-Subsection: "${subsectionTitle}"
-What to Teach: "${subsectionDescription}"
-Duration: ${estimatedDuration} (${totalDurationSeconds} seconds)
+Page: "${pageTitle}"
+What to Teach: "${pageDescription}"
+Duration: ${estimatedDuration} (${durationSeconds} seconds)
 
 Create detailed whiteboard content with drawings and captions that will be animated over time.
+Remember: This is a SINGLE PAGE/SCREEN - keep content focused and clear. The whiteboard will be cleared before the next page.
 
 IMPORTANT: Return ONLY valid JSON (no markdown, no code blocks):
 
 {
-  "totalDuration": ${totalDurationSeconds},
+  "totalDuration": ${durationSeconds},
   "drawings": [
     {
       "timestamp": 0,
@@ -496,23 +389,20 @@ DRAWING TYPES AND PROPERTIES:
 
 CANVAS DIMENSIONS: 800x600 (design for this size)
 
-GUIDELINES:
-- Start with a title (text) for the subsection at the top
-- Create visual explanations using appropriate drawing types
+GUIDELINES FOR SHORT PAGES (20-60 seconds):
+- Start with a title (text) for the page at the top
+- Create 4-8 visual elements (don't overcrowd - this is ONE focused concept)
 - Time drawings to appear progressively (timestamps spread throughout duration)
-- Each drawing should have a duration (0.3-0.8 seconds for animation)
-- Space timestamps appropriately (don't crowd multiple drawings at same time)
+- Each drawing should have a duration (0.3-0.5 seconds for animation)
+- Space timestamps appropriately (2-5 seconds between major elements)
 - Use colors effectively: blue (#2563eb) for titles, green (#059669) for main content, red (#dc2626) for emphasis
-- Create 8-15 drawings depending on complexity
-- Generate captions that narrate what's being shown
-- Captions should cover most of the total duration with small gaps
-- Each caption should last 2-4 seconds
-- Generate ${Math.ceil(totalDurationSeconds / 3)} to ${Math.ceil(totalDurationSeconds / 2)} captions
-- Caption timestamps should align roughly with related drawings
-- Use position: "bottom" for all captions unless specified
-- Make content educational, clear, and well-paced
-- Build concepts step by step
-- Use visual aids (arrows, highlights, labels) to emphasize key points
+- Generate 2-4 captions that narrate what's being shown
+- Each caption should last 5-10 seconds
+- Caption timestamps should align with related drawings
+- Use position: "bottom" for all captions
+- Make content bite-sized, clear, and focused on ONE key point
+- Build the single concept step by step
+- Use visual aids (arrows, highlights, labels) to emphasize the key message
 
 Example color palette:
 - Titles: #2563eb (blue)
@@ -531,63 +421,16 @@ Example color palette:
       const content = JSON.parse(cleanedText);
 
       return {
-        subsectionId: '', // Will be set by controller
-        subsectionTitle,
+        pageId: '', // Will be set by controller
+        pageTitle,
         topic,
-        totalDuration: content.totalDuration || totalDurationSeconds,
+        totalDuration: content.totalDuration || durationSeconds,
         drawings: content.drawings || [],
         captions: content.captions || [],
       };
     } catch (error) {
       console.error('Error generating whiteboard content:', error);
-
-      // Fallback content
-      const durationMatch = estimatedDuration.match(/(\d+)/);
-      const durationMinutes = durationMatch ? parseInt(durationMatch[1]) : 3;
-      const totalDurationSeconds = durationMinutes * 60;
-
-      return {
-        subsectionId: '',
-        subsectionTitle,
-        topic,
-        totalDuration: totalDurationSeconds,
-        drawings: [
-          {
-            timestamp: 0,
-            type: 'text',
-            start: { x: 250, y: 50 },
-            text: subsectionTitle,
-            fontSize: 28,
-            color: '#2563eb',
-            lineWidth: 2,
-            duration: 0.5,
-          },
-          {
-            timestamp: 2,
-            type: 'text',
-            start: { x: 100, y: 150 },
-            text: 'Content is being prepared...',
-            fontSize: 20,
-            color: '#1f2937',
-            lineWidth: 2,
-            duration: 0.5,
-          },
-        ],
-        captions: [
-          {
-            timestamp: 0,
-            text: `Let's learn about ${subsectionTitle}`,
-            duration: 3,
-            position: 'bottom',
-          },
-          {
-            timestamp: 3,
-            text: subsectionDescription,
-            duration: 4,
-            position: 'bottom',
-          },
-        ],
-      };
+      throw error;
     }
   }
 }
@@ -598,7 +441,7 @@ export type {
   MCQOption,
   LessonOutline,
   LessonSection,
-  LessonSubsection,
+  LessonPage,
   WhiteboardContent,
   DrawingInstruction,
   CaptionSegment,

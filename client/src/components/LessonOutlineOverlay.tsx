@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useLearningStore } from '@/store/learningStore';
 
-interface LessonSubsection {
+interface LessonPage {
   id: string;
   title: string;
   description: string;
@@ -14,7 +14,7 @@ interface LessonSection {
   id: string;
   title: string;
   description: string;
-  subsections: LessonSubsection[];
+  pages: LessonPage[];
 }
 
 interface LessonOutline {
@@ -123,23 +123,23 @@ const LessonOutlineOverlay = () => {
                   <div className="px-3 py-2 bg-white">
                     <p className="text-xs text-gray-600 mb-2">{section.description}</p>
                     
-                    {/* Subsections */}
-                    {section.subsections && section.subsections.length > 0 && (
+                    {/* Pages */}
+                    {section.pages && section.pages.length > 0 && (
                       <div className="space-y-2 mt-2">
-                        {section.subsections.map((subsection, subIndex) => (
+                        {section.pages.map((page, pageIndex) => (
                           <div
-                            key={subsection.id}
+                            key={page.id}
                             className="pl-3 border-l-2 border-blue-300 py-1"
                           >
                             <div className="flex items-start gap-2">
                               <span className="text-xs text-blue-600 font-medium flex-shrink-0">
-                                {index + 1}.{subIndex + 1}
+                                {index + 1}.{pageIndex + 1}
                               </span>
                               <div className="flex-1">
-                                <h4 className="text-xs font-medium text-gray-800">{subsection.title}</h4>
-                                <p className="text-xs text-gray-500 mt-0.5">{subsection.description}</p>
+                                <h4 className="text-xs font-medium text-gray-800">{page.title}</h4>
+                                <p className="text-xs text-gray-500 mt-0.5">{page.description}</p>
                                 <span className="text-xs text-gray-400 mt-1 inline-block">
-                                  ⏱ {subsection.estimatedDuration}
+                                  ⏱ {page.estimatedDuration}
                                 </span>
                               </div>
                             </div>
