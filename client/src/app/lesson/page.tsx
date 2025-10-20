@@ -91,13 +91,16 @@ const LessonPage = () => {
     // Reset playback state when page changes
     setIsPlaying(false);
     setCurrentTime(0);
-  }, [currentSectionIndex, currentPageIndex]);
+  }, [currentSectionIndex, currentPageIndex, whiteboardContentCache]);
 
   const handleStart = () => {
     if (lesson) {
-      setCurrentTime(0);
       setIsPlaying(true);
     }
+  };
+
+  const handlePause = () => {
+    setIsPlaying(false);
   };
 
   const handleStop = () => {
@@ -107,7 +110,8 @@ const LessonPage = () => {
   const handleReset = () => {
     setIsPlaying(false);
     setCurrentTime(0);
-    setLesson(null);
+    // Trigger a re-render of whiteboard to reset timing refs
+    setClearKey(prev => prev + 1);
   };
 
   const handleClear = () => {
@@ -134,24 +138,17 @@ const LessonPage = () => {
       <div className="bg-gray-800 text-white px-6 py-3 flex items-center justify-between shadow-lg">
         <div className="flex gap-3">
           <button
-            onClick={handleStart}
-            disabled={isPlaying || !lesson || isLoadingWhiteboard}
+            onClick={isPlaying ? handlePause : handleStart}
+            disabled={!lesson || isLoadingWhiteboard}
             className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg transition-colors"
           > 
-            {isPlaying ? '▶ Playing...' : '▶ Start'}
-          </button>
-          <button
-            onClick={handleStop}
-            disabled={!isPlaying}
-            className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg transition-colors"
-          >
-            ⏸ 
+            {isPlaying ? '⏸ Pause' : '▶ Play'}
           </button>
           <button
             onClick={handleReset}
             className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
           >
-            ⏹ 
+            ⏹ Reset
           </button>
           <button
             onClick={handleClear}
@@ -242,7 +239,7 @@ const LessonPage = () => {
           key={clearKey}
           isPlaying={isPlaying}
           onStart={handleStart}
-          onStop={handleStop}
+          onStop={handlePause}
           onReset={handleReset}
           onClear={handleClear}
           currentTime={currentTime}

@@ -61,6 +61,7 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ isPlaying, onStart, onStop, onR
   const [currentCaption, setCurrentCaption] = useState<string>('');
   const animationRef = useRef<number | null>(null);
   const startTimeRef = useRef<number | null>(null);
+  const pauseTimeRef = useRef<number>(0); // Track time when paused
   const audioRef = useRef<HTMLAudioElement | null>(null);
   
   // Canvas dimensions - base size that lessons are designed for
@@ -118,12 +119,23 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ isPlaying, onStart, onStop, onR
     };
   }, []);
 
+  // Store pause time when pausing
+  useEffect(() => {
+    if (!isPlaying && startTimeRef.current !== null) {
+      pauseTimeRef.current = currentTime;
+    }
+  }, [isPlaying, currentTime]);
+
   // Animation loop
   useEffect(() => {
-    if (!isPlaying || !lesson) return;
+    if (!isPlaying || !lesson) {
+      return;
+    }
     
-    if (!startTimeRef.current) {
-      startTimeRef.current = performance.now();
+    // When resuming (or starting), calculate the correct start time ONCE
+    // by subtracting the pause time from the current timestamp
+    if (startTimeRef.current === null) {
+      startTimeRef.current = performance.now() - (pauseTimeRef.current * 1000);
     }
 
     const animate = (timestamp: number) => {
@@ -199,10 +211,9 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ isPlaying, onStart, onStop, onR
     };
   }, [isPlaying, lesson, onStop, onTimeUpdate]);
   
-  // Reset animation start time when lesson changes or stops
+  // Handle pause/stop behavior
   useEffect(() => {
     if (!isPlaying) {
-      startTimeRef.current = null;
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
         animationRef.current = null;
@@ -211,6 +222,8 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ isPlaying, onStart, onStop, onR
         audioRef.current.pause();
         audioRef.current = null;
       }
+      // Reset startTimeRef so it recalculates on resume
+      startTimeRef.current = null;
     }
   }, [isPlaying]);
   
@@ -218,6 +231,8 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ isPlaying, onStart, onStop, onR
   useEffect(() => {
     setElements([]);
     setCurrentCaption('');
+    startTimeRef.current = null;
+    pauseTimeRef.current = 0;
   }, [lesson]);
   
   // Handle clear action from parent
