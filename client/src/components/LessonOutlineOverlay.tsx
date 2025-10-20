@@ -29,6 +29,9 @@ const LessonOutlineOverlay = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const lessonOutline = useLearningStore((state) => state.lessonOutline) as LessonOutline | null;
+  const currentSectionIndex = useLearningStore((state) => state.currentSectionIndex);
+  const currentPageIndex = useLearningStore((state) => state.currentPageIndex);
+  const setCurrentPage = useLearningStore((state) => state.setCurrentPage);
 
   const toggleSection = (sectionId: string) => {
     setExpandedSections((prev) => {
@@ -42,12 +45,20 @@ const LessonOutlineOverlay = () => {
     });
   };
 
+  const handlePageClick = (sectionIndex: number, pageIndex: number) => {
+    setCurrentPage(sectionIndex, pageIndex);
+  };
+
+  const isCurrentPage = (sectionIndex: number, pageIndex: number) => {
+    return currentSectionIndex === sectionIndex && currentPageIndex === pageIndex;
+  };
+
   if (!lessonOutline) {
     return null;
   }
 
   return (
-    <div className="fixed top-4 right-4 z-50 flex flex-col items-end">
+    <div className="fixed top-20 right-4 z-50 flex flex-col items-end">
       {/* Toggle Button */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
@@ -129,14 +140,30 @@ const LessonOutlineOverlay = () => {
                         {section.pages.map((page, pageIndex) => (
                           <div
                             key={page.id}
-                            className="pl-3 border-l-2 border-blue-300 py-1"
+                            onClick={() => handlePageClick(index, pageIndex)}
+                            className={`pl-3 border-l-2 py-1 cursor-pointer transition-all ${
+                              isCurrentPage(index, pageIndex)
+                                ? 'border-blue-500 bg-blue-50'
+                                : 'border-blue-300 hover:bg-gray-50'
+                            }`}
                           >
                             <div className="flex items-start gap-2">
-                              <span className="text-xs text-blue-600 font-medium flex-shrink-0">
+                              <span className={`text-xs font-medium flex-shrink-0 ${
+                                isCurrentPage(index, pageIndex) ? 'text-blue-700' : 'text-blue-600'
+                              }`}>
                                 {index + 1}.{pageIndex + 1}
                               </span>
                               <div className="flex-1">
-                                <h4 className="text-xs font-medium text-gray-800">{page.title}</h4>
+                                <h4 className={`text-xs font-medium ${
+                                  isCurrentPage(index, pageIndex) ? 'text-blue-900' : 'text-gray-800'
+                                }`}>
+                                  {page.title}
+                                  {isCurrentPage(index, pageIndex) && (
+                                    <span className="ml-2 text-xs bg-blue-500 text-white px-2 py-0.5 rounded-full">
+                                      Current
+                                    </span>
+                                  )}
+                                </h4>
                                 <p className="text-xs text-gray-500 mt-0.5">{page.description}</p>
                                 <span className="text-xs text-gray-400 mt-1 inline-block">
                                   ⏱ {page.estimatedDuration}

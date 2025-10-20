@@ -21,6 +21,13 @@ interface LearningState {
   lessonOutline: any | null;
   setLessonOutline: (outline: any) => void;
   
+  // Current page tracking
+  currentSectionIndex: number;
+  currentPageIndex: number;
+  setCurrentPage: (sectionIndex: number, pageIndex: number) => void;
+  nextPage: () => void;
+  previousPage: () => void;
+  
   // Loading states
   isLoadingQuestions: boolean;
   setIsLoadingQuestions: (loading: boolean) => void;
@@ -36,6 +43,8 @@ const initialState = {
   questions: [],
   responses: {},
   lessonOutline: null,
+  currentSectionIndex: 0,
+  currentPageIndex: 0,
   isLoadingQuestions: false,
   isLoadingOutline: false,
 };
@@ -65,6 +74,60 @@ export const useLearningStore = create<LearningState>()(
       // Lesson outline actions
       setLessonOutline: (outline: any) => set({ lessonOutline: outline }),
       
+      // Current page actions
+      setCurrentPage: (sectionIndex: number, pageIndex: number) => 
+        set({ currentSectionIndex: sectionIndex, currentPageIndex: pageIndex }),
+      
+      nextPage: () =>
+        set((state) => {
+          if (!state.lessonOutline || !state.lessonOutline.sections) return state;
+          
+          const currentSection = state.lessonOutline.sections[state.currentSectionIndex];
+          if (!currentSection) return state;
+          
+          // Check if there's a next page in current section
+          if (state.currentPageIndex < currentSection.pages.length - 1) {
+            return {
+              currentPageIndex: state.currentPageIndex + 1,
+            };
+          }
+          
+          // Check if there's a next section
+          if (state.currentSectionIndex < state.lessonOutline.sections.length - 1) {
+            return {
+              currentSectionIndex: state.currentSectionIndex + 1,
+              currentPageIndex: 0,
+            };
+          }
+          
+          // Already at the last page
+          return state;
+        }),
+      
+      previousPage: () =>
+        set((state) => {
+          if (!state.lessonOutline || !state.lessonOutline.sections) return state;
+          
+          // Check if there's a previous page in current section
+          if (state.currentPageIndex > 0) {
+            return {
+              currentPageIndex: state.currentPageIndex - 1,
+            };
+          }
+          
+          // Check if there's a previous section
+          if (state.currentSectionIndex > 0) {
+            const prevSection = state.lessonOutline.sections[state.currentSectionIndex - 1];
+            return {
+              currentSectionIndex: state.currentSectionIndex - 1,
+              currentPageIndex: prevSection.pages.length - 1,
+            };
+          }
+          
+          // Already at the first page
+          return state;
+        }),
+      
       // Loading actions
       setIsLoadingQuestions: (loading: boolean) => set({ isLoadingQuestions: loading }),
       setIsLoadingOutline: (loading: boolean) => set({ isLoadingOutline: loading }),
@@ -79,6 +142,8 @@ export const useLearningStore = create<LearningState>()(
         questions: state.questions,
         responses: state.responses,
         lessonOutline: state.lessonOutline,
+        currentSectionIndex: state.currentSectionIndex,
+        currentPageIndex: state.currentPageIndex,
       }), // Only persist these fields
     }
   )
