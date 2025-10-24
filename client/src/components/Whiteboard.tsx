@@ -2,6 +2,7 @@
 
 import React, { useRef, useEffect, useState } from 'react';
 import { LessonResponse, DrawingInstruction, CaptionSegment, SAMPLE_LESSON } from '@/types/lesson';
+import { socketService, audioService } from '@/lib';
 
 interface Point {
   x: number;
@@ -62,7 +63,14 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ isPlaying, onStart, onStop, onR
   const animationRef = useRef<number | null>(null);
   const startTimeRef = useRef<number | null>(null);
   const pauseTimeRef = useRef<number>(0); // Track time when paused
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const [isSocketConnected, setIsSocketConnected] = useState(false);
+  const [audioLoadingStatus, setAudioLoadingStatus] = useState<string>('');
+  const audioSegmentIndexRef = useRef<number>(0);
+  const waitingForAudioRef = useRef<boolean>(false);
+  const audioPlayStartTimeRef = useRef<number | null>(null);
+  const isStoppingRef = useRef<boolean>(false);
+  const hasStartedPlayingRef = useRef<boolean>(false);
   
   // Canvas dimensions - base size that lessons are designed for
   const BASE_WIDTH = 800;
@@ -70,6 +78,58 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ isPlaying, onStart, onStop, onR
   const [canvasWidth, setCanvasWidth] = useState(BASE_WIDTH);
   const [canvasHeight, setCanvasHeight] = useState(BASE_HEIGHT);
   const [scale, setScale] = useState(1);
+
+  // Initialize socket connection
+  useEffect(() => {
+    if (!socketService.isConnected()) {
+      socketService.connect();
+    }
+    setIsSocketConnected(socketService.isConnected());
+
+    const socket = socketService.getSocket();
+    if (socket) {
+      const handleConnect = () => setIsSocketConnected(true);
+      const handleDisconnect = () => setIsSocketConnected(false);
+
+      socket.on('connect', handleConnect);
+      socket.on('disconnect', handleDisconnect);
+
+      return () => {
+        socket.off('connect', handleConnect);
+        socket.off('disconnect', handleDisconnect);
+      };
+    }
+  }, []);
+
+  // Prefetch audio when lesson loads
+  useEffect(() => {
+    if (!lesson || !lesson.captions || !isSocketConnected) return;
+
+    console.log('Prefetching audio for', lesson.captions.length, 'captions');
+    setAudioLoadingStatus(`Preparing audio (0/${lesson.captions.length})...`);
+
+    // Extract unique caption texts
+    const captionTexts = lesson.captions.map(c => c.text);
+    
+    // Prefetch all captions
+    audioService.prefetchAudios(captionTexts);
+
+    // Monitor prefetch progress
+    const checkProgress = setInterval(() => {
+      const stats = audioService.getCacheStats();
+      if (stats.ready + stats.errors >= captionTexts.length) {
+        setAudioLoadingStatus('');
+        clearInterval(checkProgress);
+        console.log('Audio prefetch complete:', stats);
+      } else {
+        setAudioLoadingStatus(`Preparing audio (${stats.ready}/${captionTexts.length})...`);
+      }
+    }, 500);
+
+    return () => {
+      clearInterval(checkProgress);
+    };
+  }, [lesson, isSocketConnected]);
 
   // Handle responsive canvas sizing
   useEffect(() => {
@@ -126,22 +186,146 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ isPlaying, onStart, onStop, onR
     }
   }, [isPlaying, currentTime]);
 
-  // Animation loop
+  // Animation loop - now driven by audio playback
   useEffect(() => {
     if (!isPlaying || !lesson) {
       return;
     }
     
+    // Clear stopping flag at the start of playback
+    isStoppingRef.current = false;
+    
     // When resuming (or starting), calculate the correct start time ONCE
-    // by subtracting the pause time from the current timestamp
     if (startTimeRef.current === null) {
       startTimeRef.current = performance.now() - (pauseTimeRef.current * 1000);
+      audioSegmentIndexRef.current = 0;
+      
+      // Find which audio segment we should be at based on pauseTimeRef
+      if (lesson.captions && pauseTimeRef.current > 0) {
+        for (let i = 0; i < lesson.captions.length; i++) {
+          const caption = lesson.captions[i];
+          if (pauseTimeRef.current >= caption.timestamp && 
+              pauseTimeRef.current < caption.timestamp + caption.duration) {
+            audioSegmentIndexRef.current = i;
+            break;
+          } else if (pauseTimeRef.current >= caption.timestamp + caption.duration) {
+            audioSegmentIndexRef.current = i + 1;
+          }
+        }
+      }
+    }
+
+    const playNextAudio = async () => {
+      // Don't play if we're stopping
+      if (isStoppingRef.current) {
+        return;
+      }
+      
+      if (!lesson.captions || audioSegmentIndexRef.current >= lesson.captions.length) {
+        return;
+      }
+
+      const currentCaption = lesson.captions[audioSegmentIndexRef.current];
+      const captionText = currentCaption.text;
+
+      // Show caption immediately
+      setCurrentCaption(captionText);
+
+      // Check if audio is ready
+      if (!audioService.isAudioReady(captionText)) {
+        waitingForAudioRef.current = true;
+        await audioService.requestAudio(captionText);
+        waitingForAudioRef.current = false;
+        
+        // Check again if we're still playing after async operation
+        if (isStoppingRef.current) {
+          return;
+        }
+      }
+
+      // Play the audio
+      const audio = audioService.playAudio(captionText);
+      if (audio) {
+        currentAudioRef.current = audio;
+        audioPlayStartTimeRef.current = performance.now();
+
+        // When audio ends, move to next segment
+        audio.onended = () => {
+          // Check if we're still playing
+          if (isStoppingRef.current) {
+            return;
+          }
+          
+          audioSegmentIndexRef.current++;
+          setCurrentCaption('');
+          
+          // Play next audio if available
+          if (audioSegmentIndexRef.current < (lesson.captions?.length || 0)) {
+            playNextAudio();
+          }
+        };
+
+        audio.onerror = (e) => {
+          console.error('Audio playback error:', e);
+          audioSegmentIndexRef.current++;
+          setCurrentCaption('');
+          
+          // Try next segment if still playing
+          if (!isStoppingRef.current && audioSegmentIndexRef.current < (lesson.captions?.length || 0)) {
+            playNextAudio();
+          }
+        };
+      } else {
+        // Audio not available, use duration from caption and simulate playback
+        const captionDuration = currentCaption.duration * 1000; // Convert to ms
+        
+        // Simulate audio playback with timeout
+        setTimeout(() => {
+          if (isStoppingRef.current) {
+            return;
+          }
+          
+          audioSegmentIndexRef.current++;
+          setCurrentCaption('');
+          
+          // Play next audio if available
+          if (audioSegmentIndexRef.current < (lesson.captions?.length || 0)) {
+            playNextAudio();
+          }
+        }, captionDuration);
+      }
+    };
+
+    // Start playing audio segments only once per play session
+    if (startTimeRef.current !== null && !hasStartedPlayingRef.current) {
+      hasStartedPlayingRef.current = true;
+      playNextAudio();
     }
 
     const animate = (timestamp: number) => {
       if (!startTimeRef.current) return;
       
-      const elapsed = (timestamp - startTimeRef.current) / 1000; // Convert to seconds
+      // Calculate elapsed time based on audio playback
+      let elapsed: number;
+      
+      if (waitingForAudioRef.current) {
+        // If waiting for audio, don't advance time
+        elapsed = pauseTimeRef.current;
+      } else if (currentAudioRef.current && !currentAudioRef.current.paused) {
+        // Use audio currentTime for precise synchronization
+        const currentSegmentIndex = audioSegmentIndexRef.current;
+        if (lesson.captions && currentSegmentIndex < lesson.captions.length) {
+          const currentCaption = lesson.captions[currentSegmentIndex];
+          elapsed = currentCaption.timestamp + (currentAudioRef.current.currentTime || 0);
+        } else {
+          elapsed = (timestamp - startTimeRef.current) / 1000;
+        }
+      } else {
+        // Fallback to timestamp-based calculation
+        // This handles cases where audio isn't available
+        elapsed = (timestamp - startTimeRef.current) / 1000;
+      }
+      
       onTimeUpdate(elapsed);
 
       // Check if lesson is complete
@@ -150,17 +334,14 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ isPlaying, onStart, onStop, onR
         return;
       }
 
-      // Update drawings with animation progress
+      // Update drawings with animation progress based on timing
       const newElements: DrawingElement[] = [];
       lesson.drawings.forEach((instruction) => {
         if (elapsed >= instruction.timestamp) {
           const timeSinceStart = elapsed - instruction.timestamp;
-          const animDuration = instruction.duration || 0.5; // Default 0.5s animation
+          const animDuration = instruction.duration || 0.5;
           
-          // Calculate animation progress (0 to 1)
           let progress = Math.min(timeSinceStart / animDuration, 1);
-          
-          // Add easing for smoother animation (ease-out)
           progress = 1 - Math.pow(1 - progress, 3);
           
           newElements.push({
@@ -171,34 +352,6 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ isPlaying, onStart, onStop, onR
       });
       setElements(newElements);
 
-      // Update captions - show caption if current time is within its range
-      let activeCaption = '';
-      lesson.captions.forEach((caption) => {
-        if (elapsed >= caption.timestamp && elapsed < caption.timestamp + caption.duration) {
-          activeCaption = caption.text;
-        }
-      });
-      setCurrentCaption(activeCaption);
-
-      // Play audio segments at their timestamp
-      // Note: In production, you'd use actual audio files from TTS
-      lesson.audio?.forEach((audioSegment) => {
-        const audioStart = audioSegment.timestamp;
-        const audioEnd = audioSegment.timestamp + audioSegment.duration;
-        
-        if (elapsed >= audioStart && elapsed < audioStart + 0.1) {
-          // Audio would start here (simulate with console log)
-          console.log(`🔊 Speaking: "${audioSegment.text}"`);
-          
-          // In production, you would play the actual audio:
-          // if (audioSegment.audioUrl) {
-          //   const audio = new Audio(audioSegment.audioUrl);
-          //   audio.play();
-          //   audioRef.current = audio;
-          // }
-        }
-      });
-
       animationRef.current = requestAnimationFrame(animate);
     };
 
@@ -208,22 +361,55 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ isPlaying, onStart, onStop, onR
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
+      // Properly stop audio without causing AbortError
+      if (currentAudioRef.current) {
+        try {
+          currentAudioRef.current.pause();
+          currentAudioRef.current.onended = null;
+          currentAudioRef.current.onerror = null;
+          currentAudioRef.current = null;
+        } catch (e) {
+          // Ignore cleanup errors
+        }
+      }
     };
-  }, [isPlaying, lesson, onStop, onTimeUpdate]);
+  }, [isPlaying, lesson]); // Removed onStop and onTimeUpdate from dependencies
   
   // Handle pause/stop behavior
   useEffect(() => {
+    console.log('Pause/play handler - isPlaying:', isPlaying);
     if (!isPlaying) {
+      // Set flag to prevent new audio from playing
+      isStoppingRef.current = true;
+      hasStartedPlayingRef.current = false;
+      console.log('Reset hasStartedPlayingRef to false');
+      
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
         animationRef.current = null;
       }
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
+      // Properly stop audio to prevent AbortError
+      if (currentAudioRef.current) {
+        try {
+          // Remove event listeners first
+          currentAudioRef.current.onended = null;
+          currentAudioRef.current.onerror = null;
+          // Then pause
+          currentAudioRef.current.pause();
+          currentAudioRef.current = null;
+        } catch (e) {
+          // Ignore errors during cleanup
+          console.debug('Audio cleanup:', e);
+        }
       }
       // Reset startTimeRef so it recalculates on resume
       startTimeRef.current = null;
+      audioPlayStartTimeRef.current = null;
+      waitingForAudioRef.current = false;
+    } else {
+      // Clear stopping flag when playing starts
+      isStoppingRef.current = false;
+      console.log('Playing started - isStoppingRef set to false');
     }
   }, [isPlaying]);
   
@@ -233,6 +419,25 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ isPlaying, onStart, onStop, onR
     setCurrentCaption('');
     startTimeRef.current = null;
     pauseTimeRef.current = 0;
+    audioSegmentIndexRef.current = 0;
+    audioPlayStartTimeRef.current = null;
+    waitingForAudioRef.current = false;
+    isStoppingRef.current = true;
+    hasStartedPlayingRef.current = false;
+    
+    // Clear audio cache for previous lesson
+    audioService.clearCache();
+    
+    if (currentAudioRef.current) {
+      try {
+        currentAudioRef.current.onended = null;
+        currentAudioRef.current.onerror = null;
+        currentAudioRef.current.pause();
+        currentAudioRef.current = null;
+      } catch (e) {
+        console.debug('Audio cleanup on lesson change:', e);
+      }
+    }
   }, [lesson]);
   
   // Handle clear action from parent
@@ -633,6 +838,22 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ isPlaying, onStart, onStop, onR
 
   return (
     <div className="w-full h-full flex flex-col relative">
+      
+      {/* Socket Connection Status */}
+      {!isSocketConnected && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
+          <div className="w-3 h-3 bg-yellow-500 rounded-full animate-pulse"></div>
+          <span className="text-sm font-medium">Connecting to audio service...</span>
+        </div>
+      )}
+
+      {/* Audio Loading Status */}
+      {audioLoadingStatus && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 bg-blue-100 border border-blue-400 text-blue-700 px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
+          <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          <span className="text-sm font-medium">{audioLoadingStatus}</span>
+        </div>
+      )}
       
       <div ref={containerRef} className="flex-1 flex items-center justify-center bg-gray-100 p-2 sm:p-4 overflow-hidden w-full">
         <div className="bg-white rounded-lg shadow-2xl border-4 border-gray-300 p-2 sm:p-4 max-w-full max-h-full flex items-center justify-center">
