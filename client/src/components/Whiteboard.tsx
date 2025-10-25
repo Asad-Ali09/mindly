@@ -2,6 +2,7 @@
 
 import React, { useRef, useEffect, useState } from 'react';
 import { LessonResponse, DrawingInstruction, CaptionSegment, SAMPLE_LESSON } from '@/types/lesson';
+import socketService from '@/lib/socketService';
 
 interface Point {
   x: number;
@@ -17,6 +18,7 @@ interface WhiteboardProps {
   currentTime: number;
   onTimeUpdate: (time: number) => void;
   lesson: LessonResponse | null;
+  resetAudioKey: number; // Key that changes to trigger audio reset
 }
 
 interface DrawingElement {
@@ -54,7 +56,7 @@ interface DrawingElement {
   animationProgress?: number; // 0 to 1, for animating the drawing
 }
 
-const Whiteboard: React.FC<WhiteboardProps> = ({ isPlaying, onStart, onStop, onReset, onClear, currentTime, onTimeUpdate, lesson }) => {
+const Whiteboard: React.FC<WhiteboardProps> = ({ isPlaying, onStart, onStop, onReset, onClear, currentTime, onTimeUpdate, lesson, resetAudioKey }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [elements, setElements] = useState<DrawingElement[]>([]);
@@ -63,6 +65,8 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ isPlaying, onStart, onStop, onR
   const startTimeRef = useRef<number | null>(null);
   const pauseTimeRef = useRef<number>(0); // Track time when paused
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const playedCaptionsRef = useRef<Set<number>>(new Set()); // Track which captions have had audio played
+  const audioQueueRef = useRef<Map<number, string>>(new Map()); // Store audio data keyed by caption index
   
   // Canvas dimensions - base size that lessons are designed for
   const BASE_WIDTH = 800;
@@ -119,6 +123,51 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ isPlaying, onStart, onStop, onR
     };
   }, []);
 
+  // Initialize socket connection on mount
+  useEffect(() => {
+    socketService.connect();
+
+    return () => {
+      // Clean up socket listeners on unmount
+      socketService.removeAllListeners('audio-response');
+      socketService.removeAllListeners('tts-error');
+    };
+  }, []);
+
+  // Pre-fetch audio for all captions when lesson loads
+  useEffect(() => {
+    if (!lesson || !lesson.captions) return;
+
+    // Clear previous audio queue
+    audioQueueRef.current.clear();
+    playedCaptionsRef.current.clear();
+
+    // Request audio for each caption with a small delay to prevent race conditions
+    lesson.captions.forEach((caption, index) => {
+      setTimeout(() => {
+        socketService.requestTextToSpeech(
+          caption.text,
+          (audioData) => {
+            // Verify that the audio response matches the caption text
+            if (caption.text === audioData.text) {
+              // Store audio in queue with the caption text as verification
+              audioQueueRef.current.set(index, audioData.audio);
+              console.log(`✓ Audio cached for caption ${index}: "${caption.text.substring(0, 50)}..."`);
+              console.log(`   Audio data length: ${audioData.audio.length} characters`);
+            } else {
+              console.error(`✗ Caption text mismatch for caption ${index}!`);
+              console.error(`   Expected: "${caption.text.substring(0, 50)}..."`);
+              console.error(`   Received: "${audioData.text.substring(0, 50)}..."`);
+            }
+          },
+          (error) => {
+            console.error(`✗ Failed to get audio for caption ${index}:`, error.message);
+          }
+        );
+      }, index * 100); // Stagger requests by 100ms each
+    });
+  }, [lesson]);
+
   // Store pause time when pausing
   useEffect(() => {
     if (!isPlaying && startTimeRef.current !== null) {
@@ -171,33 +220,125 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ isPlaying, onStart, onStop, onR
       });
       setElements(newElements);
 
-      // Update captions - show caption if current time is within its range
+      // Update captions and play audio
       let activeCaption = '';
-      lesson.captions.forEach((caption) => {
-        if (elapsed >= caption.timestamp && elapsed < caption.timestamp + caption.duration) {
-          activeCaption = caption.text;
-        }
-      });
-      setCurrentCaption(activeCaption);
-
-      // Play audio segments at their timestamp
-      // Note: In production, you'd use actual audio files from TTS
-      lesson.audio?.forEach((audioSegment) => {
-        const audioStart = audioSegment.timestamp;
-        const audioEnd = audioSegment.timestamp + audioSegment.duration;
+      let activeCaptionIndex = -1;
+      
+      lesson.captions.forEach((caption, index) => {
+        const captionStart = caption.timestamp;
+        const captionEnd = caption.timestamp + caption.duration;
         
-        if (elapsed >= audioStart && elapsed < audioStart + 0.1) {
-          // Audio would start here (simulate with console log)
-          console.log(`🔊 Speaking: "${audioSegment.text}"`);
+        if (elapsed >= captionStart && elapsed < captionEnd) {
+          activeCaption = caption.text;
+          activeCaptionIndex = index;
           
-          // In production, you would play the actual audio:
-          // if (audioSegment.audioUrl) {
-          //   const audio = new Audio(audioSegment.audioUrl);
-          //   audio.play();
-          //   audioRef.current = audio;
-          // }
+          // Play audio if we haven't played it yet for this caption
+          // Use a small window to detect if we just entered this caption's timeframe
+          const justEntered = elapsed >= captionStart && elapsed < captionStart + 0.1;
+          
+          if (justEntered && !playedCaptionsRef.current.has(index)) {
+            playedCaptionsRef.current.add(index);
+            
+            // Check if audio is available in queue
+            const audioBase64 = audioQueueRef.current.get(index);
+            
+            if (audioBase64) {
+              console.log(`🔊 Playing audio for caption ${index}: "${caption.text.substring(0, 50)}..."`);
+              console.log(`   Audio queue size: ${audioQueueRef.current.size}, Using audio for index: ${index}`);
+              console.log(`   Audio data length: ${audioBase64.length} characters`);
+              
+              // Stop any currently playing audio
+              if (audioRef.current) {
+                audioRef.current.pause();
+                audioRef.current = null;
+              }
+              
+              // Play the audio
+              try {
+                // Convert base64 to blob
+                const byteCharacters = atob(audioBase64);
+                const byteNumbers = new Array(byteCharacters.length);
+                for (let i = 0; i < byteCharacters.length; i++) {
+                  byteNumbers[i] = byteCharacters.charCodeAt(i);
+                }
+                const byteArray = new Uint8Array(byteNumbers);
+                const blob = new Blob([byteArray], { type: 'audio/wav' });
+
+                // Create audio URL and play
+                const audioUrl = URL.createObjectURL(blob);
+                const audio = new Audio(audioUrl);
+                audioRef.current = audio;
+                
+                audio.play().catch((error) => {
+                  console.error('Error playing audio:', error);
+                });
+
+                // Clean up URL after audio ends
+                audio.onended = () => {
+                  URL.revokeObjectURL(audioUrl);
+                  if (audioRef.current === audio) {
+                    audioRef.current = null;
+                  }
+                };
+              } catch (error) {
+                console.error('Error in audio playback:', error);
+              }
+            } else {
+              console.warn(`⚠ Audio not yet available for caption ${index}, requesting now...`);
+              console.warn(`   Caption text: "${caption.text.substring(0, 50)}..."`);
+              console.warn(`   Current queue size: ${audioQueueRef.current.size}`);
+              // Request audio again if it's not in the queue
+              socketService.requestTextToSpeech(
+                caption.text,
+                (audioData) => {
+                  // Verify that the audio response matches the caption text
+                  if (caption.text === audioData.text) {
+                    audioQueueRef.current.set(index, audioData.audio);
+                    console.log(`✓ Audio fetched on-demand for caption ${index}: "${caption.text.substring(0, 50)}..."`);
+                    console.log(`   Audio data length: ${audioData.audio.length} characters`);
+                    
+                    // If we're still on this caption, play the audio immediately
+                    if (activeCaption === caption.text && !audioRef.current) {
+                      try {
+                        const byteCharacters = atob(audioData.audio);
+                        const byteNumbers = new Array(byteCharacters.length);
+                        for (let i = 0; i < byteCharacters.length; i++) {
+                          byteNumbers[i] = byteCharacters.charCodeAt(i);
+                        }
+                        const byteArray = new Uint8Array(byteNumbers);
+                        const blob = new Blob([byteArray], { type: 'audio/wav' });
+                        const audioUrl = URL.createObjectURL(blob);
+                        const audio = new Audio(audioUrl);
+                        audioRef.current = audio;
+                        audio.play().catch((error) => {
+                          console.error('Error playing on-demand audio:', error);
+                        });
+                        audio.onended = () => {
+                          URL.revokeObjectURL(audioUrl);
+                          if (audioRef.current === audio) {
+                            audioRef.current = null;
+                          }
+                        };
+                      } catch (error) {
+                        console.error('Error in on-demand audio playback:', error);
+                      }
+                    }
+                  } else {
+                    console.error(`✗ Caption text mismatch for on-demand caption ${index}!`);
+                    console.error(`   Expected: "${caption.text.substring(0, 50)}..."`);
+                    console.error(`   Received: "${audioData.text.substring(0, 50)}..."`);
+                  }
+                },
+                (error) => {
+                  console.error(`✗ Failed to get audio for caption ${index}:`, error.message);
+                }
+              );
+            }
+          }
         }
       });
+      
+      setCurrentCaption(activeCaption);
 
       animationRef.current = requestAnimationFrame(animate);
     };
@@ -226,6 +367,12 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ isPlaying, onStart, onStop, onR
       startTimeRef.current = null;
     }
   }, [isPlaying]);
+
+  // Reset played captions when resetAudioKey changes (triggered by Reset button in parent)
+  useEffect(() => {
+    playedCaptionsRef.current.clear();
+    console.log('🔄 Reset played captions tracker');
+  }, [resetAudioKey]);
   
   // Clear elements when lesson changes
   useEffect(() => {
@@ -233,6 +380,13 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ isPlaying, onStart, onStop, onR
     setCurrentCaption('');
     startTimeRef.current = null;
     pauseTimeRef.current = 0;
+    playedCaptionsRef.current.clear();
+    
+    // Stop any playing audio
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
   }, [lesson]);
   
   // Handle clear action from parent

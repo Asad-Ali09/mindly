@@ -6,10 +6,11 @@ import {
   ClientToServerEvents,
   TextToSpeechRequest
 } from './socket.types';
+import config from '../config/config';
 
 // TTS Service Configuration
 // FastAPI service using Glow-TTS model for text-to-speech conversion
-const TTS_SERVICE_URL = 'http://127.0.0.1:8001';
+const TTS_SERVICE_URL = config.TTS_SERVICE_URL;
 
 export const initializeSocket = (httpServer: HTTPServer) => {
   const io = new SocketIOServer<ClientToServerEvents, ServerToClientEvents>(httpServer, {
@@ -34,6 +35,7 @@ export const initializeSocket = (httpServer: HTTPServer) => {
         }, {
           responseType: 'arraybuffer' // Expecting audio file (WAV)
         });
+        console.log('Cache status for text <', data.text, '>:', response.headers['x-cache-status']);
 
         // Send the audio back to the client
         socket.emit('audio-response', {
@@ -42,7 +44,7 @@ export const initializeSocket = (httpServer: HTTPServer) => {
           mimeType: 'audio/wav'
         });
 
-        console.log('Audio sent successfully to client:', socket.id);
+        console.log('Audio sent successfully to client:', socket.id, ' for text:', data.text, ' audio size:', response.data.byteLength);
       } catch (error: any) {
         console.error('Error calling TTS service:', error.message);
         socket.emit('tts-error', {

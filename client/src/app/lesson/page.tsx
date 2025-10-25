@@ -13,6 +13,7 @@ const LessonPage = () => {
   const [lesson, setLesson] = useState<LessonResponse | null>(null);
   const [clearKey, setClearKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [resetAudioKey, setResetAudioKey] = useState(0); // Key to trigger audio reset in Whiteboard
 
   // Get lesson outline and page navigation from store
   const topic = useLearningStore((state) => state.topic);
@@ -112,6 +113,8 @@ const LessonPage = () => {
     setCurrentTime(0);
     // Trigger a re-render of whiteboard to reset timing refs
     setClearKey(prev => prev + 1);
+    // Trigger audio reset in Whiteboard
+    setResetAudioKey(prev => prev + 1);
   };
 
   const handleClear = () => {
@@ -245,6 +248,7 @@ const LessonPage = () => {
           currentTime={currentTime}
           onTimeUpdate={handleTimeUpdate}
           lesson={lesson}
+          resetAudioKey={resetAudioKey}
         />
         
         {/* Lesson Outline Overlay */}
