@@ -150,6 +150,7 @@ const LessonPage = () => {
         pageTitle,
         pageDescription,
         estimatedDuration,
+        lessonOutline, // Pass the lesson outline for context
       });
 
       if (response.success && response.data) {

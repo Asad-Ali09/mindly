@@ -47,6 +47,7 @@ export interface WhiteboardContentRequest {
   pageTitle: string;
   pageDescription: string;
   estimatedDuration: string;
+  lessonOutline?: any; // Optional lesson outline for context
 }
 
 export interface WhiteboardContentResponse {

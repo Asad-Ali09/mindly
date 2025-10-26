@@ -293,13 +293,15 @@ Guidelines:
    * @param pageTitle - Title of the page
    * @param pageDescription - Description of what to teach
    * @param estimatedDuration - Duration string (e.g., "30 seconds")
+   * @param lessonOutline - The complete lesson outline for context (optional)
    * @returns Whiteboard content with drawings and captions
    */
   async generateWhiteboardContent(
     topic: string,
     pageTitle: string,
     pageDescription: string,
-    estimatedDuration: string
+    estimatedDuration: string,
+    lessonOutline?: LessonOutline
   ): Promise<WhiteboardContent> {
     try {
       // Parse duration to seconds
@@ -308,21 +310,36 @@ Guidelines:
   // Provide the available animations to the model so it can choose appropriate animations
   const animationList = JSON.stringify(animationsCfg, null, 2);
 
+  // Build context about the lesson outline if provided
+  let outlineContext = '';
+  if (lessonOutline) {
+    outlineContext = `
+Lesson Outline Context:
+- Overall Topic: "${lessonOutline.topic}"
+- Knowledge Level: ${lessonOutline.knowledgeLevel}
+- Overall Objective: "${lessonOutline.overallObjective}"
+- Total Sections: ${lessonOutline.sections.length}
+
+This page is part of the larger lesson structure. Consider how this page fits into the overall flow and builds upon or prepares for other content in the lesson.
+`;
+  }
+
   const prompt = `
-You are an expert AI tutor creating animated whiteboard content for teaching.
+You are an expert AI tutor creating HIGHLY ENGAGING animated whiteboard content for teaching. Your PRIMARY GOAL is to explain concepts thoroughly and engagingly through detailed narration and appropriate character animations.
 
 Topic: "${topic}"
 Page: "${pageTitle}"
 What to Teach: "${pageDescription}"
 Duration: ${estimatedDuration} (${durationSeconds} seconds)
-
+${outlineContext}
 Available animations (animations.json):
 ${animationList}
 
-IMPORTANT: The AI MUST pick zero or more animations from the provided list to make the lecture look natural. When referencing animations in the returned "animations" array, use the animation "id" exactly as listed in the provided animations. Only pick animations that exist in the list.
-
-Create detailed whiteboard content with drawings and captions that will be animated over time.
-Remember: This is a SINGLE PAGE/SCREEN - keep content focused and clear. The whiteboard will be cleared before the next page.
+🎯 CONTENT PHILOSOPHY:
+- EXPLANATIONS FIRST: Prioritize detailed, clear verbal explanations over complex drawings
+- ENGAGEMENT: Keep the student engaged through conversational, flowing narration
+- VISUAL SUPPORT: Use drawings as visual aids to support the explanation, not as the main content
+- ANIMATIONS: The character should be actively animated throughout the explanation to maintain engagement
 
 IMPORTANT: Return ONLY valid JSON (no markdown, no code blocks):
 
@@ -338,24 +355,23 @@ IMPORTANT: Return ONLY valid JSON (no markdown, no code blocks):
       ... (type-specific properties)
     }
   ],
-      "captions": [
+  "captions": [
     {
       "timestamp": 0,
-      "text": "Caption text",
-      "duration": 3,
+      "text": "Caption text - should be detailed and explanatory",
+      "duration": 5,
       "position": "bottom"
     }
+  ],
+  "animations": [
+    {
+      "id": "talking-1",
+      "name": "Talking (1)",
+      "start": 0,
+      "duration": 5.17,
+      "loop": false
+    }
   ]
-      ,
-      "animations": [
-        {
-          "id": "breathing-idle",
-          "name": "Breathing Idle",
-          "start": 0,
-          "duration": 0,
-          "loop": true
-        }
-      ]
 }
 
 DRAWING TYPES AND PROPERTIES:
@@ -421,27 +437,105 @@ DRAWING TYPES AND PROPERTIES:
 
 CANVAS DIMENSIONS: 800x600 (design for this size)
 
-GUIDELINES FOR SHORT PAGES (20-60 seconds):
-- Start with a title (text) for the page at the top
-- Create 4-8 visual elements (don't overcrowd - this is ONE focused concept)
-- Time drawings to appear progressively (timestamps spread throughout duration)
-- Each drawing should have a duration (0.3-0.5 seconds for animation)
-- Space timestamps appropriately (2-5 seconds between major elements)
-- Use colors effectively: blue (#2563eb) for titles, green (#059669) for main content, red (#dc2626) for emphasis
-- Generate 2-4 captions that narrate what's being shown
-- Each caption should last 5-10 seconds
-- Caption timestamps should align with related drawings
-- Use position: "bottom" for all captions
-- Make content bite-sized, clear, and focused on ONE key point
-- Build the single concept step by step
-- Use visual aids (arrows, highlights, labels) to emphasize the key message
+📚 CONTENT STRUCTURE GUIDELINES:
 
-Example color palette:
+1. CAPTIONS (HIGHEST PRIORITY - 70% of focus):
+   - Generate 5-8 detailed captions that tell a complete story
+   - Each caption should be conversational and explanatory (like a teacher speaking)
+   - Caption duration: 6-10 seconds each (LONGER for proper speaking pace)
+   - IMPORTANT: Add 1-2 second gaps between captions to allow processing time
+   - Use natural, flowing language that builds understanding step-by-step
+   - Include examples, analogies, and real-world connections
+   - Each caption should be a complete thought that can be spoken naturally
+   - Think of captions as the PRIMARY teaching tool
+   - Example caption: "Let me explain why this is important. When we look at chemical formulas, we're actually seeing a shorthand that chemists use to communicate. It's like a universal language that tells us exactly what atoms are present and in what quantities."
+   - TIMING EXAMPLE:
+     * Caption 1: timestamp 0, duration 7 seconds
+     * Caption 2: timestamp 8 (1 second gap), duration 8 seconds  
+     * Caption 3: timestamp 17 (1 second gap), duration 6 seconds
+
+2. ANIMATIONS (CRITICAL - 25% of focus):
+   - Character MUST be animated whenever speaking (captions are playing)
+   - Use varied animations to maintain visual interest
+   - Animation types to use:
+     * "talking-1" (5.17s): Main teaching animation - use frequently
+     * "talking" (3.77s): Alternative talking animation for variety
+     * "talking-2" (10.27s): Emphatic/passionate explanation
+     * "hands-forward-gesture" (3.10s): Presenting or introducing concepts
+     * "head-nod-yes" (2.60s): Confirming understanding or agreement
+     * "standing-arguing" (20.80s): Passionate/detailed explanation (for longer segments)
+     * "breathing-idle" (infinite): Use during gaps between captions (1-2 seconds)
+   - Sequence animations to match caption timing and content mood
+   - Example: Start with "hands-forward-gesture" (introduction) → "talking-1" (main explanation) → "breathing-idle" (brief pause) → "talking-2" (next point)
+   - Animation should START at the same time as the caption it accompanies
+
+3. DRAWINGS (SUPPORTING ROLE - 5% of focus):
+   - Use 3-5 strategic visual elements (LESS is MORE)
+   - CRITICAL: Space drawings with 8-15 second intervals (SLOW DOWN!)
+   - Drawings should appear DURING caption playback, not before
+   - Each drawing animation duration: 0.5-1.0 seconds (slower reveal)
+   - Coordinate drawing appearance with what's being said in captions
+   - Use drawings for:
+     * Page title (text at top) - appears in first 2 seconds
+     * Key terms or definitions (text) - when mentioned in caption
+     * Simple diagrams or illustrations - to support explanation
+     * Arrows to show relationships - when explaining connections
+     * Highlights to emphasize points - when stressing importance
+   - DON'T create complex diagrams - the explanation is more important
+   - DRAWING TIMING EXAMPLE:
+     * Drawing 1 (title): timestamp 0, duration 0.8s
+     * Drawing 2 (key term): timestamp 12, duration 0.7s (appears during 2nd caption)
+     * Drawing 3 (diagram): timestamp 25, duration 1.0s (appears during 3rd caption)
+
+4. TIMING STRATEGY FOR 30-60 SECOND PAGES:
+   - Second 0-2: Page title appears + welcoming animation starts
+   - Second 0-7: First caption (introduction) + "hands-forward-gesture" animation
+   - Second 8-15: Second caption (main concept) + "talking-1" animation, key drawing at ~12s
+   - Second 16-17: Brief pause with "breathing-idle"
+   - Second 17-25: Third caption (detailed explanation) + "talking-2" animation
+   - Second 26-35: Fourth caption (examples/application) + "talking-1" animation, supporting drawing at ~30s
+   - Second 36-37: Brief pause
+   - Second 37-45: Fifth caption (summary) + "head-nod-yes" then "talking" animation
+   - Ensure character is ALWAYS animated (talking or breathing)
+   - Drawings appear strategically during explanations, not all at once
+
+⏱️ PACING RULES (CRITICAL):
+- Average speaking rate: 150-170 words per minute (2.5-3 words per second)
+- Caption text length: 15-25 words per caption (6-10 seconds to speak naturally)
+- Gaps between captions: 1-2 seconds (breathing room)
+- Drawing intervals: Minimum 8-12 seconds apart
+- Don't rush - quality explanation > quantity of content
+- If page duration is 30 seconds: 4-5 captions MAX
+- If page duration is 45 seconds: 6-7 captions MAX
+- If page duration is 60 seconds: 7-8 captions MAX
+
+🎨 COLOR PALETTE (Use strategically):
 - Titles: #2563eb (blue)
 - Main content: #059669 (green), #1f2937 (dark gray)
 - Emphasis: #dc2626 (red), #7c3aed (purple)
 - Highlights: #fbbf24 (yellow/gold)
 - Secondary: #6366f1 (indigo)
+
+✅ QUALITY CHECKLIST:
+- [ ] Captions have proper 1-2 second gaps between them (not continuous)
+- [ ] Each caption duration matches natural speaking pace (6-10 seconds)
+- [ ] Character is animated during all caption playback
+- [ ] "breathing-idle" used during gaps between captions
+- [ ] Animations start at same timestamp as their corresponding captions
+- [ ] Drawings are spaced 8-15 seconds apart (slow pacing)
+- [ ] Drawing duration is 0.5-1.0 seconds (slow reveal)
+- [ ] Drawings appear DURING captions, coordinated with what's being said
+- [ ] Total number of captions fits the duration (4-5 for 30s, 6-7 for 45s, 7-8 for 60s)
+- [ ] Content is engaging but NOT rushed
+- [ ] Student has time to process each concept before moving to the next
+
+🎯 REMEMBER: SLOW DOWN! Quality teaching requires proper pacing. The student needs time to:
+1. Listen to the explanation (caption)
+2. Process what was said (gap between captions)
+3. Look at visual aids (drawings appear during explanation)
+4. Connect the concepts (animations help maintain engagement)
+
+Think of this as a real classroom lecture - you wouldn't rush through explanations. Give each concept time to breathe!
 `;
 
       const result = await this.model.generateContent(prompt);

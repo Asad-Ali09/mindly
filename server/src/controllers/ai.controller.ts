@@ -96,7 +96,8 @@ class AIController {
    *   topic: string,
    *   pageTitle: string,
    *   pageDescription: string,
-   *   estimatedDuration: string
+   *   estimatedDuration: string,
+   *   lessonOutline?: LessonOutline (optional, for better context)
    * }
    */
   async getWhiteboardContent(req: Request, res: Response) {
@@ -107,6 +108,7 @@ class AIController {
         pageTitle,
         pageDescription,
         estimatedDuration,
+        lessonOutline,
       } = req.body;
 
       // Validation
@@ -149,7 +151,8 @@ class AIController {
         topic.trim(),
         pageTitle.trim(),
         pageDescription.trim(),
-        estimatedDuration.trim()
+        estimatedDuration.trim(),
+        lessonOutline // Pass the lesson outline if provided
       );
 
       // Set the page ID
