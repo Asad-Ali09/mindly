@@ -1,0 +1,36 @@
+# Use a Python image with more pre-installed packages
+FROM python:3.10
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    libsndfile1 \
+    ffmpeg \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements
+COPY requirements.txt .
+
+# Upgrade pip
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel
+
+# Install all dependencies at once
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY main.py .
+
+# Create output directory
+RUN mkdir -p output
+
+# Expose port
+EXPOSE 8001
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+
+# Run with reload for development
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"]
