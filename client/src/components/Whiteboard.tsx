@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef, useEffect, useState } from 'react';
-import { LessonResponse, DrawingInstruction, CaptionSegment, SAMPLE_LESSON } from '@/types/lesson';
+import { LessonResponse } from '@/types/lesson';
 import socketService from '@/lib/socketService';
 
 interface Point {
@@ -20,6 +20,28 @@ interface WhiteboardProps {
   lesson: LessonResponse | null;
   resetAudioKey: number; // Key that changes to trigger audio reset
   onAudioFetchProgress?: (fetched: number, total: number, loading: boolean) => void;
+  // Moved in from parent
+  containerRef: React.RefObject<HTMLDivElement | null>;
+  elements: DrawingElement[];
+  setElements: (els: DrawingElement[]) => void;
+  currentCaption: string;
+  setCurrentCaption: (c: string) => void;
+  activeAvatarAnimation: string;
+  setActiveAvatarAnimation: (anim: string) => void;
+  animationRef: React.MutableRefObject<number | null>;
+  startTimeRef: React.MutableRefObject<number | null>;
+  pauseTimeRef: React.MutableRefObject<number>;
+  audioRef: React.MutableRefObject<HTMLAudioElement | null>;
+  playedCaptionsRef: React.MutableRefObject<Set<number>>;
+  audioQueueRef: React.MutableRefObject<Map<number, string>>;
+  BASE_WIDTH: number;
+  BASE_HEIGHT: number;
+  canvasWidth: number;
+  canvasHeight: number;
+  setCanvasWidth: (w: number) => void;
+  setCanvasHeight: (h: number) => void;
+  scale: number;
+  setScale: (s: number) => void;
 }
 
 interface DrawingElement {
@@ -57,24 +79,44 @@ interface DrawingElement {
   animationProgress?: number; // 0 to 1, for animating the drawing
 }
 
-const Whiteboard: React.FC<WhiteboardProps> = ({ isPlaying, onStart, onStop, onReset, onClear, currentTime, onTimeUpdate, lesson, resetAudioKey, onAudioFetchProgress }) => {
+const Whiteboard: React.FC<WhiteboardProps> = ({
+  isPlaying,
+  onStart,
+  onStop,
+  onReset,
+  onClear,
+  currentTime,
+  onTimeUpdate,
+  lesson,
+  resetAudioKey,
+  onAudioFetchProgress,
+  // moved props
+  containerRef,
+  elements,
+  setElements,
+  currentCaption,
+  setCurrentCaption,
+  activeAvatarAnimation,
+  setActiveAvatarAnimation,
+  animationRef,
+  startTimeRef,
+  pauseTimeRef,
+  audioRef,
+  playedCaptionsRef,
+  audioQueueRef,
+  BASE_WIDTH,
+  BASE_HEIGHT,
+  canvasWidth,
+  canvasHeight,
+  setCanvasWidth,
+  setCanvasHeight,
+  scale,
+  setScale,
+
+}) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [elements, setElements] = useState<DrawingElement[]>([]);
-  const [currentCaption, setCurrentCaption] = useState<string>('');
-  const animationRef = useRef<number | null>(null);
-  const startTimeRef = useRef<number | null>(null);
-  const pauseTimeRef = useRef<number>(0); // Track time when paused
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const playedCaptionsRef = useRef<Set<number>>(new Set()); // Track which captions have had audio played
-  const audioQueueRef = useRef<Map<number, string>>(new Map()); // Store audio data keyed by caption index
   
-  // Canvas dimensions - base size that lessons are designed for
-  const BASE_WIDTH = 800;
-  const BASE_HEIGHT = 600;
-  const [canvasWidth, setCanvasWidth] = useState(BASE_WIDTH);
-  const [canvasHeight, setCanvasHeight] = useState(BASE_HEIGHT);
-  const [scale, setScale] = useState(1);
+  // NOTE: BASE_WIDTH/HEIGHT and canvas sizing state are supplied by parent
 
   // Handle responsive canvas sizing
   useEffect(() => {
@@ -86,10 +128,6 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ isPlaying, onStart, onStop, onR
       const containerHeight = container.clientHeight;
 
       // Account for padding and borders
-      // Outer container: p-2 sm:p-4 = 8px mobile, 16px desktop
-      // Inner div: p-2 sm:p-4 = 8px mobile, 16px desktop  
-      // Border: 4px on each side
-      // Canvas border: 2px on each side
       const isMobile = window.innerWidth < 640;
       const outerPadding = isMobile ? 8 : 16;
       const innerPadding = isMobile ? 8 : 16;
@@ -165,12 +203,12 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ isPlaying, onStart, onStop, onR
               if (typeof onAudioFetchProgress === 'function') {
                 onAudioFetchProgress(fetched, total, fetched < total);
               }
-              console.log(`✓ Audio cached for caption ${index}: "${caption.text.substring(0, 50)}..."`);
-              console.log(`   Audio data length: ${audioData.audio.length} characters`);
+              // console.log(`✓ Audio cached for caption ${index}: "${caption.text.substring(0, 50)}..."`);
+              // console.log(`   Audio data length: ${audioData.audio.length} characters`);
             } else {
-              console.error(`✗ Caption text mismatch for caption ${index}!`);
-              console.error(`   Expected: "${caption.text.substring(0, 50)}..."`);
-              console.error(`   Received: "${audioData.text.substring(0, 50)}..."`);
+              // console.error(`✗ Caption text mismatch for caption ${index}!`);
+              // console.error(`   Expected: "${caption.text.substring(0, 50)}..."`);
+              // console.error(`   Received: "${audioData.text.substring(0, 50)}..."`);
             }
           },
           (error) => {
@@ -357,6 +395,20 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ isPlaying, onStart, onStop, onR
       });
       
       setCurrentCaption(activeCaption);
+
+      let activeAnimation = 'Breathing Idle';
+      
+      lesson.animations?.forEach((anim) => {
+        if (elapsed >= anim.start && elapsed <= anim.start + anim.duration) {
+          activeAnimation = anim.name;
+        }
+      });
+      
+      if(activeAnimation !== activeAvatarAnimation) {
+        console.log("Changin ................................", activeAnimation)
+        setActiveAvatarAnimation(activeAnimation)
+      }
+
 
       animationRef.current = requestAnimationFrame(animate);
     };

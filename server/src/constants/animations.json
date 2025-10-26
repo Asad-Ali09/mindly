@@ -1,0 +1,74 @@
+{
+  "animations": [
+    {
+      "id": "breathing-idle",
+      "name": "Breathing Idle",
+      "fileName": "Breathing Idle.fbx",
+      "description": "Character stands naturally with subtle chest breathing movements.",
+      "duration": 0
+    },
+    {
+      "id": "hands-forward-gesture",
+      "name": "Hands Forward Gesture",
+      "fileName": "Hands Forward Gesture.fbx",
+      "description": "Character casually extends both arms forward with relaxed hand gesture.",
+      "duration": 3.10
+    },
+    {
+      "id": "head-nod-yes",
+      "name": "Head Nod Yes",
+      "fileName": "Head Nod Yes.fbx",
+      "description": "Character nods head up and down in agreement.",
+      "duration": 2.60
+    },
+    {
+      "id": "sarcastic-head-nod",
+      "name": "Sarcastic Head Nod",
+      "fileName": "Sarcastic Head Nod.fbx",
+      "description": "Character performs a slow, exaggerated head nod with sarcastic attitude.",
+      "duration": 2.33
+    },
+    {
+      "id": "standing-arguing",
+      "name": "Standing Arguing",
+      "fileName": "Standing Arguing.fbx",
+      "description": "Character displays argumentative body language with emphatic hand gestures.",
+      "duration": 20.80
+    },
+    {
+      "id": "talking",
+      "name": "Talking",
+      "fileName": "Talking.fbx",
+      "description": "Character talks in standing straight position with one hand in idle position, using the other hand for gestures.",
+      "duration": 3.77
+    },
+    {
+      "id": "talking-1",
+      "name": "Talking (1)",
+      "fileName": "Talking (1).fbx",
+      "description": "Character talks with one hand on hip, using the other hand for gestures.",
+      "duration": 5.17
+    },
+    {
+      "id": "talking-2",
+      "name": "Talking (2)",
+      "fileName": "Talking (2).fbx",
+      "description": "Character talks in disagreement or anger with both hands gesturing.",
+      "duration": 10.27
+    },
+    {
+      "id": "waving-1",
+      "name": "Waving (1)",
+      "fileName": "Waving (1).fbx",
+      "description": "Character raises hand and waves side to side in greeting.",
+      "duration": 4.07
+    },
+    {
+      "id": "yelling",
+      "name": "Yelling",
+      "fileName": "Yelling.fbx",
+      "description": "Character yells with wide-open mouth and emphatic body gestures.",
+      "duration": 7.83
+    }
+  ]
+}

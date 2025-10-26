@@ -51,18 +51,42 @@ export const Avatar = React.forwardRef<THREE.Group, AvatarProps>((props, ref) =>
   const { actions } = useAnimations(animationClips || [], group)
 
   useEffect(() => {
-    if (animation && actions[animation]) {
-      // Stop all other animations
-      Object.values(actions).forEach(action => action?.stop())
-      
-      // Play the selected animation
-      const selectedAction = actions[animation];
-      selectedAction?.reset().fadeIn(0.5).play();
-      
-      return () => {
-        selectedAction?.fadeOut(0.5);
+    if (!animation || !actions[animation]) return;
+    
+    const newAction = actions[animation];
+    let prevAction = null;
+
+    for (const key in actions) {
+      if (actions[key]?.isRunning()) {
+        prevAction = actions[key];
+        break;
       }
     }
+
+    if (prevAction && prevAction !== newAction) {
+    // smooth fade between previous and new
+    prevAction.crossFadeTo(newAction, 0.6, false);
+    newAction.reset().play();
+  } else {
+    // play immediately if no previous
+    newAction.reset().fadeIn(0.5).play();
+  }
+
+    return () => {
+    newAction.fadeOut(0.6);
+  };
+
+      // Stop all other animations
+      // Object.values(actions).forEach(action => action?.stop())
+      
+      // // Play the selected animation
+      // const selectedAction = actions[animation];
+      // selectedAction?.reset().fadeIn(0.5).play();
+      
+      // return () => {
+      //   selectedAction?.fadeOut(0.5);
+      // }
+    
   }, [animation, actions])
 
   // Apply rotation offset for specific animations

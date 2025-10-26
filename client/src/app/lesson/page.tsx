@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, Suspense } from "react";
+import { useState, useEffect, useMemo, Suspense, useRef } from "react";
 import Whiteboard from "@/components/Whiteboard";
 import LessonOutlineOverlay from "@/components/LessonOutlineOverlay";
 import { Avatar } from "@/components/Avatar";
@@ -27,7 +27,7 @@ function useAnimations() {
 
   return useMemo(() => {
     const clips: THREE.AnimationClip[] = [];
-    
+
     const animationData = [
       { fbx: breathingIdle, name: "Breathing Idle" },
       { fbx: handsForward, name: "Hands Forward Gesture" },
@@ -104,6 +104,33 @@ const LessonPage = () => {
 
   // Load animation clips for Avatar
   const animationClips = useAnimations();
+
+  // -- Moved states/refs from Whiteboard (so Whiteboard becomes mostly presentation) --
+  // Drawing elements and caption state
+  const [elements, setElements] = useState<any[]>([]);
+  const [currentCaption, setCurrentCaption] = useState<string>('');
+
+  const [activeAvatarAnimation, setActiveAvatarAnimation] = useState<string>('Breathing Idle');
+
+  // Animation and timing refs
+  const animationRef = useRef<number | null>(null);
+  const startTimeRef = useRef<number | null>(null);
+  const pauseTimeRef = useRef<number>(0);
+
+  // Audio refs and queues
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const playedCaptionsRef = useRef<Set<number>>(new Set());
+  const audioQueueRef = useRef<Map<number, string>>(new Map());
+
+  // Canvas/container sizing (moved)
+  const BASE_WIDTH = 800;
+  const BASE_HEIGHT = 600;
+  const [canvasWidth, setCanvasWidth] = useState(BASE_WIDTH);
+  const [canvasHeight, setCanvasHeight] = useState(BASE_HEIGHT);
+  const [scale, setScale] = useState(1);
+
+  // containerRef (moved) - passed down and attached to the whiteboard outer div
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   const handleAudioFetchProgress = (fetched: number, total: number, loading: boolean) => {
     setAudioFetched(fetched);
@@ -330,6 +357,28 @@ const LessonPage = () => {
             lesson={lesson}
             resetAudioKey={resetAudioKey}
             onAudioFetchProgress={handleAudioFetchProgress}
+            // moved states/refs
+            containerRef={containerRef}
+            elements={elements}
+            setElements={setElements}
+            currentCaption={currentCaption}
+            setCurrentCaption={setCurrentCaption}
+            activeAvatarAnimation={activeAvatarAnimation}
+            setActiveAvatarAnimation={setActiveAvatarAnimation}
+            animationRef={animationRef}
+            startTimeRef={startTimeRef}
+            pauseTimeRef={pauseTimeRef}
+            audioRef={audioRef}
+            playedCaptionsRef={playedCaptionsRef}
+            audioQueueRef={audioQueueRef}
+            BASE_WIDTH={BASE_WIDTH}
+            BASE_HEIGHT={BASE_HEIGHT}
+            canvasWidth={canvasWidth}
+            canvasHeight={canvasHeight}
+            setCanvasWidth={setCanvasWidth}
+            setCanvasHeight={setCanvasHeight}
+            scale={scale}
+            setScale={setScale}
           />
         </div>
 
@@ -340,7 +389,7 @@ const LessonPage = () => {
               <ambientLight intensity={0.6} />
               <directionalLight position={[5, 10, 5]} intensity={1} />
               <Suspense fallback={null}>
-                <Avatar animations={animationClips} animation="Breathing Idle" position={[0, -1, 0]} />
+                <Avatar animations={animationClips} animation={activeAvatarAnimation} position={[0, -1, 0]} />
               </Suspense>
             </Canvas>
           </div>

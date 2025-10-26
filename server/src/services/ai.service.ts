@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import config from '../config/config';
+import animationsCfg from '../constants/animations.json';
 
 interface MCQOption {
   id: string;
@@ -91,6 +92,20 @@ interface WhiteboardContent {
   totalDuration: number; // Total duration in seconds
   drawings: DrawingInstruction[];
   captions: CaptionSegment[];
+  animations?: AvatarAnimation[];
+}
+
+interface AvatarAnimation {
+  // id should match one of the known animations (e.g., "talking", "breathing-idle")
+  id: string;
+  // human-friendly name (optional)
+  name?: string;
+  // time in seconds when the animation should start
+  start: number;
+  // duration in seconds for this animation (0 for infinite/idle)
+  duration: number;
+  // whether the animation should loop
+  loop?: boolean;
 }
 
 class AIService {
@@ -290,14 +305,21 @@ Guidelines:
       // Parse duration to seconds
       const durationMatch = estimatedDuration.match(/(\d+)/);
       const durationSeconds = durationMatch ? parseInt(durationMatch[1]) : 30;
+  // Provide the available animations to the model so it can choose appropriate animations
+  const animationList = JSON.stringify(animationsCfg, null, 2);
 
-      const prompt = `
+  const prompt = `
 You are an expert AI tutor creating animated whiteboard content for teaching.
 
 Topic: "${topic}"
 Page: "${pageTitle}"
 What to Teach: "${pageDescription}"
 Duration: ${estimatedDuration} (${durationSeconds} seconds)
+
+Available animations (animations.json):
+${animationList}
+
+IMPORTANT: The AI MUST pick zero or more animations from the provided list to make the lecture look natural. When referencing animations in the returned "animations" array, use the animation "id" exactly as listed in the provided animations. Only pick animations that exist in the list.
 
 Create detailed whiteboard content with drawings and captions that will be animated over time.
 Remember: This is a SINGLE PAGE/SCREEN - keep content focused and clear. The whiteboard will be cleared before the next page.
@@ -316,7 +338,7 @@ IMPORTANT: Return ONLY valid JSON (no markdown, no code blocks):
       ... (type-specific properties)
     }
   ],
-  "captions": [
+      "captions": [
     {
       "timestamp": 0,
       "text": "Caption text",
@@ -324,6 +346,16 @@ IMPORTANT: Return ONLY valid JSON (no markdown, no code blocks):
       "position": "bottom"
     }
   ]
+      ,
+      "animations": [
+        {
+          "id": "breathing-idle",
+          "name": "Breathing Idle",
+          "start": 0,
+          "duration": 0,
+          "loop": true
+        }
+      ]
 }
 
 DRAWING TYPES AND PROPERTIES:
@@ -420,6 +452,22 @@ Example color palette:
       const cleanedText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       const content = JSON.parse(cleanedText);
 
+      // Normalize animations returned by the model and validate against known animations
+      const known = Array.isArray((animationsCfg as any).animations) ? (animationsCfg as any).animations : [];
+      const parsedAnimations: AvatarAnimation[] = Array.isArray(content.animations)
+        ? content.animations.map((a: any) => {
+            const id = a.id || (a.name && String(a.name).toLowerCase().replace(/\s+/g, '-')) || '';
+            const match = known.find((k: any) => k.id === id || (k.name && k.name.toLowerCase() === String(a.name || '').toLowerCase()));
+            return {
+              id: match ? match.id : id,
+              name: match ? match.name : a.name,
+              start: typeof a.start === 'number' ? a.start : 0,
+              duration: typeof a.duration === 'number' ? a.duration : 0,
+              loop: !!a.loop,
+            } as AvatarAnimation;
+          })
+        : [];
+
       return {
         pageId: '', // Will be set by controller
         pageTitle,
@@ -427,6 +475,7 @@ Example color palette:
         totalDuration: content.totalDuration || durationSeconds,
         drawings: content.drawings || [],
         captions: content.captions || [],
+        animations: parsedAnimations,
       };
     } catch (error) {
       console.error('Error generating whiteboard content:', error);
@@ -446,4 +495,5 @@ export type {
   DrawingInstruction,
   CaptionSegment,
   Point,
+  AvatarAnimation,
 };
