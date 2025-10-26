@@ -8,10 +8,14 @@
     "start": "next start"
   },
   "dependencies": {
+    "@react-three/drei": "^10.7.6",
+    "@react-three/fiber": "^9.4.0",
     "axios": "^1.12.2",
     "next": "15.5.4",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "socket.io-client": "^4.8.1",
+    "three": "^0.180.0",
     "zustand": "^5.0.8"
   },
   "devDependencies": {
@@ -19,6 +23,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/three": "^0.180.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

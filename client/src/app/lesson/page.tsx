@@ -1,11 +1,64 @@
 'use client';
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
 import Whiteboard from "@/components/Whiteboard";
 import LessonOutlineOverlay from "@/components/LessonOutlineOverlay";
+import { Avatar } from "@/components/Avatar";
 import { LessonResponse } from "@/types/lesson";
 import { useLearningStore } from "@/store/learningStore";
 import { aiApi } from "@/api";
+import { useFBX } from "@react-three/drei";
+import * as THREE from "three";
+import { Canvas } from "@react-three/fiber";
+
+function useAnimations() {
+  const breathingIdle = useFBX("/animations/Breathing Idle.fbx");
+  const handsForward = useFBX("/animations/Hands Forward Gesture.fbx");
+  const headNodYes = useFBX("/animations/Head Nod Yes.fbx");
+  const pointing = useFBX("/animations/Pointing.fbx");
+  const sarcasticNod = useFBX("/animations/Sarcastic Head Nod.fbx");
+  const standingArguing = useFBX("/animations/Standing Arguing.fbx");
+  const talking = useFBX("/animations/Talking.fbx");
+  const talking1 = useFBX("/animations/Talking (1).fbx");
+  const talking2 = useFBX("/animations/Talking (2).fbx");
+  const waving = useFBX("/animations/Waving.fbx");
+  const waving1 = useFBX("/animations/Waving (1).fbx");
+  const yelling = useFBX("/animations/Yelling.fbx");
+
+  return useMemo(() => {
+    const clips: THREE.AnimationClip[] = [];
+    
+    const animationData = [
+      { fbx: breathingIdle, name: "Breathing Idle" },
+      { fbx: handsForward, name: "Hands Forward Gesture" },
+      { fbx: headNodYes, name: "Head Nod Yes" },
+      { fbx: pointing, name: "Pointing" },
+      { fbx: sarcasticNod, name: "Sarcastic Head Nod" },
+      { fbx: standingArguing, name: "Standing Arguing" },
+      { fbx: talking, name: "Talking" },
+      { fbx: talking1, name: "Talking (1)" },
+      { fbx: talking2, name: "Talking (2)" },
+      { fbx: waving, name: "Waving" },
+      { fbx: waving1, name: "Waving (1)" },
+      { fbx: yelling, name: "Yelling" }
+    ];
+
+    animationData.forEach(({ fbx, name }) => {
+      if (fbx && fbx.animations && fbx.animations.length > 0) {
+        const clip = fbx.animations[0];
+        clip.name = name;
+        clips.push(clip);
+      }
+    });
+
+    return clips;
+  }, [
+    breathingIdle, handsForward, headNodYes, pointing,
+    sarcasticNod, standingArguing, talking, talking1,
+    talking2, waving, waving1, yelling
+  ]);
+}
+
 
 const LessonPage = () => {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -14,6 +67,9 @@ const LessonPage = () => {
   const [clearKey, setClearKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [resetAudioKey, setResetAudioKey] = useState(0); // Key to trigger audio reset in Whiteboard
+  const [audioFetchLoading, setAudioFetchLoading] = useState(false);
+  const [audioFetched, setAudioFetched] = useState(0);
+  const [audioTotal, setAudioTotal] = useState(0);
 
   // Get lesson outline and page navigation from store
   const topic = useLearningStore((state) => state.topic);
@@ -45,6 +101,15 @@ const LessonPage = () => {
   };
 
   const pageInfo = getCurrentPageInfo();
+
+  // Load animation clips for Avatar
+  const animationClips = useAnimations();
+
+  const handleAudioFetchProgress = (fetched: number, total: number, loading: boolean) => {
+    setAudioFetched(fetched);
+    setAudioTotal(total);
+    setAudioFetchLoading(loading);
+  };
 
   // Fetch whiteboard content for current page
   const fetchWhiteboardContent = async (pageId: string, pageTitle: string, pageDescription: string, estimatedDuration: string) => {
@@ -163,6 +228,20 @@ const LessonPage = () => {
 
         {/* Page Navigation */}
         <div className="flex items-center gap-3">
+          {/* Audio fetch status */}
+          {(audioTotal > 0) && (
+            <div className="text-sm px-3 py-1 rounded-md flex items-center gap-2"
+                 style={{ background: audioFetchLoading ? 'rgba(250, 204, 21, 0.12)' : 'rgba(16,185,129,0.08)', color: audioFetchLoading ? '#b45309' : '#10b981' }}>
+              {audioFetchLoading ? (
+                <>
+                  <div className="w-3 h-3 rounded-full animate-pulse" style={{ background: '#b45309' }} />
+                  <span>Loading audio: {audioFetched}/{audioTotal}</span>
+                </>
+              ) : (
+                <span>Audio fetched: {audioFetched}/{audioTotal}</span>
+              )}
+            </div>
+          )}
           {pageInfo && (
             <div className="text-sm bg-gray-700 px-4 py-2 rounded-lg">
               <span className="text-gray-400">Section {currentSectionIndex + 1}, Page {currentPageIndex + 1}:</span>
@@ -210,8 +289,8 @@ const LessonPage = () => {
         </div>
       )}
 
-      {/* Whiteboard */}
-      <div className="flex-1 h-0 relative">
+  {/* Main content: Whiteboard + Avatar */}
+  <div className="flex-1 h-0 relative flex flex-col md:flex-row">
         {/* Loading Overlay */}
         {isLoadingWhiteboard && (
           <div className="absolute inset-0 bg-black/50 z-40 flex items-center justify-center">
@@ -238,19 +317,35 @@ const LessonPage = () => {
           </div>
         )}
 
-        <Whiteboard 
-          key={clearKey}
-          isPlaying={isPlaying}
-          onStart={handleStart}
-          onStop={handlePause}
-          onReset={handleReset}
-          onClear={handleClear}
-          currentTime={currentTime}
-          onTimeUpdate={handleTimeUpdate}
-          lesson={lesson}
-          resetAudioKey={resetAudioKey}
-        />
-        
+        <div className="flex-1 min-w-0">
+          <Whiteboard 
+            key={clearKey}
+            isPlaying={isPlaying}
+            onStart={handleStart}
+            onStop={handlePause}
+            onReset={handleReset}
+            onClear={handleClear}
+            currentTime={currentTime}
+            onTimeUpdate={handleTimeUpdate}
+            lesson={lesson}
+            resetAudioKey={resetAudioKey}
+            onAudioFetchProgress={handleAudioFetchProgress}
+          />
+        </div>
+
+        {/* Avatar panel - shown on md+ screens next to the whiteboard */}
+        <div className="hidden md:flex md:w-1/3 lg:w-1/4 items-center justify-center p-4 bg-gradient-to-tr from-gray-50 to-white">
+          <div className=" w-full h-full max-w-sm max-h-[600px] rounded-lg shadow-lg bg-white/60 backdrop-blur-sm overflow-hidden">
+            <Canvas camera={{ position: [0, 0.1, 3.2], fov: 40 }} className="w-full h-[420px]">
+              <ambientLight intensity={0.6} />
+              <directionalLight position={[5, 10, 5]} intensity={1} />
+              <Suspense fallback={null}>
+                <Avatar animations={animationClips} animation="Breathing Idle" position={[0, -1, 0]} />
+              </Suspense>
+            </Canvas>
+          </div>
+        </div>
+
         {/* Lesson Outline Overlay */}
         <LessonOutlineOverlay />
       </div>

@@ -19,6 +19,7 @@ interface WhiteboardProps {
   onTimeUpdate: (time: number) => void;
   lesson: LessonResponse | null;
   resetAudioKey: number; // Key that changes to trigger audio reset
+  onAudioFetchProgress?: (fetched: number, total: number, loading: boolean) => void;
 }
 
 interface DrawingElement {
@@ -56,7 +57,7 @@ interface DrawingElement {
   animationProgress?: number; // 0 to 1, for animating the drawing
 }
 
-const Whiteboard: React.FC<WhiteboardProps> = ({ isPlaying, onStart, onStop, onReset, onClear, currentTime, onTimeUpdate, lesson, resetAudioKey }) => {
+const Whiteboard: React.FC<WhiteboardProps> = ({ isPlaying, onStart, onStop, onReset, onClear, currentTime, onTimeUpdate, lesson, resetAudioKey, onAudioFetchProgress }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [elements, setElements] = useState<DrawingElement[]>([]);
@@ -142,6 +143,13 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ isPlaying, onStart, onStop, onR
     audioQueueRef.current.clear();
     playedCaptionsRef.current.clear();
 
+    const total = lesson.captions.length;
+    let fetched = 0;
+    // Notify parent that prefetch is starting
+    if (typeof onAudioFetchProgress === 'function') {
+      onAudioFetchProgress(fetched, total, true);
+    }
+
     // Request audio for each caption with a small delay to prevent race conditions
     lesson.captions.forEach((caption, index) => {
       setTimeout(() => {
@@ -152,6 +160,11 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ isPlaying, onStart, onStop, onR
             if (caption.text === audioData.text) {
               // Store audio in queue with the caption text as verification
               audioQueueRef.current.set(index, audioData.audio);
+              fetched = audioQueueRef.current.size;
+              // Report progress to parent
+              if (typeof onAudioFetchProgress === 'function') {
+                onAudioFetchProgress(fetched, total, fetched < total);
+              }
               console.log(`✓ Audio cached for caption ${index}: "${caption.text.substring(0, 50)}..."`);
               console.log(`   Audio data length: ${audioData.audio.length} characters`);
             } else {
@@ -162,6 +175,11 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ isPlaying, onStart, onStop, onR
           },
           (error) => {
             console.error(`✗ Failed to get audio for caption ${index}:`, error.message);
+            // Even on error, update progress (we attempted)
+            if (typeof onAudioFetchProgress === 'function') {
+              // fetched remains whatever successfully fetched so far
+              onAudioFetchProgress(audioQueueRef.current.size, total, audioQueueRef.current.size < total);
+            }
           }
         );
       }, index * 100); // Stagger requests by 100ms each
@@ -386,6 +404,11 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ isPlaying, onStart, onStop, onR
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current = null;
+    }
+    // Inform parent that audio fetching is reset/complete for this lesson change
+    if (typeof onAudioFetchProgress === 'function') {
+      const total = lesson && lesson.captions ? lesson.captions.length : 0;
+      onAudioFetchProgress(audioQueueRef.current.size, total, false);
     }
   }, [lesson]);
   
