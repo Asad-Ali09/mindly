@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLearningStore } from '@/store';
 import { aiApi } from '@/api';
+import { Tiles } from '@/components/ui/tiles';
 
 const LearnPage = () => {
   const router = useRouter();
@@ -56,8 +57,18 @@ const LearnPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#141712] p-4">
-      <div className="w-full max-w-4xl">
+    <div className="relative min-h-screen flex items-center justify-center bg-[#141712] p-4 overflow-hidden">
+      {/* Animated Tiles Background */}
+      <div className="fixed inset-0 z-0 opacity-60">
+        <Tiles 
+          rows={50} 
+          cols={20}
+          tileSize="md"
+          tileClassName="border-[#bf3a0d]/50"
+        />
+      </div>
+      
+      <div className="relative z-10 w-full max-w-4xl pointer-events-auto">
         {/* Main Card */}
         <div className="bg-[#141712] p-8 sm:p-12 rounded-lg">
           {/* Header */}

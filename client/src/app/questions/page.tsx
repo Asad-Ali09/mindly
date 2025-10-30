@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLearningStore } from '@/store';
 import { aiApi } from '@/api';
+import { Tiles } from '@/components/ui/tiles';
 
 const QuestionsPage = () => {
   const router = useRouter();
@@ -144,55 +145,67 @@ const QuestionsPage = () => {
   if (!currentQuestion) return null;
 
   return (
-    <div className="min-h-screen bg-[#141712] p-4 py-8">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl sm:text-4xl font-bold text-[#ffffff] mb-2">
-            Assessment: {topic}
-          </h1>
-          <p className="text-[#ffffff]/70">
-            Answer these questions to help us personalize your learning experience
-          </p>
-        </div>
-
-        {/* Progress Bar */}
-        <div className="mb-8">
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-sm font-medium text-[#ffffff]">
-              Question {currentQuestionIndex + 1} of {questions.length}
-            </span>
-            <span className="text-sm font-medium text-[#ffffff]">
-              {Math.round(((currentQuestionIndex + 1) / questions.length) * 100)}% Complete
-            </span>
+    <div className="relative min-h-screen bg-[#141712] p-4 py-8 overflow-hidden">
+      {/* Animated Tiles Background */}
+      <div className="fixed inset-0 z-0 opacity-60">
+        <Tiles 
+          rows={50} 
+          cols={20}
+          tileSize="md"
+          tileClassName="border-[#bf3a0d]/50"
+        />
+      </div>
+      
+      <div className="relative z-10 max-w-4xl mx-auto">
+        {/* Main Card Container */}
+        <div className="bg-[#141712] border border-[#bf3a0d]/30 rounded-2xl shadow-2xl p-6 sm:p-8 backdrop-blur-sm">
+          {/* Header */}
+          <div className="mb-8">
+            <h1 className="text-3xl sm:text-4xl font-bold text-[#ffffff] mb-2">
+              Assessment: {topic}
+            </h1>
+            <p className="text-[#ffffff]/70">
+              Answer these questions to help us personalize your learning experience
+            </p>
           </div>
-          <div className="w-full bg-[#ffffff]/10 rounded-full h-2.5">
-            <div
-              className="bg-[#bf3a0d] h-2.5 rounded-full transition-all duration-300"
-              style={{
-                width: `${((currentQuestionIndex + 1) / questions.length) * 100}%`,
-              }}
-            ></div>
-          </div>
-        </div>
 
-        {/* Question Card */}
-        <div className="bg-[#141712] border border-[#bf3a0d]/20 rounded-2xl shadow-xl p-6 sm:p-8 mb-6">
-          {/* Question Header */}
-          <div className="mb-6">
-            <div className="flex items-start justify-between gap-4 mb-2">
-              <h2 className="text-xl sm:text-2xl font-semibold text-[#ffffff]">
-                {currentQuestion.question}
-              </h2>
-              <span className={`px-3 py-1 text-xs font-medium rounded-full whitespace-nowrap ${
-                currentQuestion.type === 'single'
-                  ? 'bg-[#bf3a0d]/20 text-[#bf3a0d]'
-                  : 'bg-[#bf3a0d]/20 text-[#bf3a0d]'
-              }`}>
-                {currentQuestion.type === 'single' ? 'Single Choice' : 'Multiple Choice'}
+          {/* Progress Bar */}
+          <div className="mb-8">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm font-medium text-[#ffffff]">
+                Question {currentQuestionIndex + 1} of {questions.length}
+              </span>
+              <span className="text-sm font-medium text-[#ffffff]">
+                {Math.round(((currentQuestionIndex + 1) / questions.length) * 100)}% Complete
               </span>
             </div>
+            <div className="w-full bg-[#ffffff]/10 rounded-full h-2.5">
+              <div
+                className="bg-[#bf3a0d] h-2.5 rounded-full transition-all duration-300"
+                style={{
+                  width: `${((currentQuestionIndex + 1) / questions.length) * 100}%`,
+                }}
+              ></div>
+            </div>
           </div>
+
+          {/* Question Section */}
+          <div className="mb-6">
+            {/* Question Header */}
+            <div className="mb-6">
+              <div className="flex items-start justify-between gap-4 mb-2">
+                <h2 className="text-xl sm:text-2xl font-semibold text-[#ffffff]">
+                  {currentQuestion.question}
+                </h2>
+                <span className={`px-3 py-1 text-xs font-medium rounded-full whitespace-nowrap ${
+                  currentQuestion.type === 'single'
+                    ? 'bg-[#bf3a0d]/20 text-[#bf3a0d]'
+                    : 'bg-[#bf3a0d]/20 text-[#bf3a0d]'
+                }`}>
+                  {currentQuestion.type === 'single' ? 'Single Choice' : 'Multiple Choice'}
+                </span>
+              </div>
+            </div>
 
           {/* Options */}
           <div className="space-y-3">
@@ -260,25 +273,25 @@ const QuestionsPage = () => {
             })}
           </div>
 
-          {/* Hint based on question type */}
-          <p className="text-sm text-[#ffffff]/50 mt-4 italic">
-            {currentQuestion.type === 'single' 
-              ? 'Select one option' 
-              : 'Select all that apply'}
-          </p>
-        </div>
-
-        {/* Error Message */}
-        {error && (
-          <div className="mb-6 p-4 bg-[#bf3a0d]/10 border border-[#bf3a0d] rounded-xl">
-            <p className="text-[#bf3a0d] text-sm">{error}</p>
+            {/* Hint based on question type */}
+            <p className="text-sm text-[#ffffff]/50 mt-4 italic">
+              {currentQuestion.type === 'single' 
+                ? 'Select one option' 
+                : 'Select all that apply'}
+            </p>
           </div>
-        )}
 
-        {/* Navigation Buttons */}
-        <div className="flex gap-4">
-          {/* Previous Button */}
-          <button
+          {/* Error Message */}
+          {error && (
+            <div className="mb-6 p-4 bg-[#bf3a0d]/10 border border-[#bf3a0d] rounded-xl">
+              <p className="text-[#bf3a0d] text-sm">{error}</p>
+            </div>
+          )}
+
+          {/* Navigation Buttons */}
+          <div className="flex gap-4">
+            {/* Previous Button */}
+            <button
             onClick={handlePrevious}
             disabled={currentQuestionIndex === 0}
             className="px-6 py-3 bg-[#ffffff]/10 text-[#ffffff] font-semibold rounded-xl hover:bg-[#ffffff]/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
@@ -316,11 +329,11 @@ const QuestionsPage = () => {
               )}
             </button>
           )}
-        </div>
+          </div>
 
-        {/* Question Navigation Dots */}
-        <div className="mt-8 flex justify-center gap-2 flex-wrap">
-          {questions.map((q, index) => {
+          {/* Question Navigation Dots */}
+          <div className="mt-8 flex justify-center gap-2 flex-wrap">
+            {questions.map((q, index) => {
             const isAnsweredQ = responses[q.id] && responses[q.id].length > 0;
             const isCurrent = index === currentQuestionIndex;
             return (
@@ -339,7 +352,8 @@ const QuestionsPage = () => {
                 {index + 1}
               </button>
             );
-          })}
+            })}
+          </div>
         </div>
       </div>
     </div>
