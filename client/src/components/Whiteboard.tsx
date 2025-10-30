@@ -863,13 +863,13 @@ const Whiteboard: React.FC<WhiteboardProps> = ({
   return (
     <div className="w-full h-full flex flex-col relative">
       
-      <div ref={containerRef} className="flex-1 flex items-center justify-center bg-gray-100 p-2 sm:p-4 overflow-hidden w-full">
-        <div className="bg-white rounded-lg shadow-2xl border-4 border-gray-300 p-2 sm:p-4 max-w-full max-h-full flex items-center justify-center">
+      <div ref={containerRef} className="flex-1 flex items-center justify-center bg-[#141712] p-2 sm:p-4 overflow-hidden w-full">
+        <div className="bg-[#ffffff] rounded-lg shadow-2xl border-4 border-[#bf3a0d]/30 p-2 sm:p-4 max-w-full max-h-full flex items-center justify-center">
           <canvas
             ref={canvasRef}
             width={canvasWidth}
             height={canvasHeight}
-            className="border-2 border-gray-200 rounded cursor-crosshair max-w-full max-h-full"
+            className="border-2 border-[#bf3a0d]/20 rounded cursor-crosshair max-w-full max-h-full"
             style={{ display: 'block' }}
           />
         </div>
@@ -878,7 +878,7 @@ const Whiteboard: React.FC<WhiteboardProps> = ({
       {/* Caption Display - Absolutely positioned at bottom, centered */}
       {currentCaption && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex justify-center">
-          <div className="bg-gray-900/45  text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg shadow-lg backdrop-blur-sm">
+          <div className="bg-[#141712]/90 border border-[#bf3a0d]/50 text-[#ffffff] px-4 sm:px-6 py-2 sm:py-3 rounded-lg shadow-lg backdrop-blur-sm">
             <p className="text-base sm:text-lg font-medium whitespace-nowrap">{currentCaption}</p>
           </div>
         </div>

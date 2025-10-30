@@ -144,14 +144,14 @@ const QuestionsPage = () => {
   if (!currentQuestion) return null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 p-4 py-8">
+    <div className="min-h-screen bg-[#141712] p-4 py-8">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl sm:text-4xl font-bold text-gray-800 mb-2">
+          <h1 className="text-3xl sm:text-4xl font-bold text-[#ffffff] mb-2">
             Assessment: {topic}
           </h1>
-          <p className="text-gray-600">
+          <p className="text-[#ffffff]/70">
             Answer these questions to help us personalize your learning experience
           </p>
         </div>
@@ -159,16 +159,16 @@ const QuestionsPage = () => {
         {/* Progress Bar */}
         <div className="mb-8">
           <div className="flex justify-between items-center mb-2">
-            <span className="text-sm font-medium text-gray-700">
+            <span className="text-sm font-medium text-[#ffffff]">
               Question {currentQuestionIndex + 1} of {questions.length}
             </span>
-            <span className="text-sm font-medium text-gray-700">
+            <span className="text-sm font-medium text-[#ffffff]">
               {Math.round(((currentQuestionIndex + 1) / questions.length) * 100)}% Complete
             </span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2.5">
+          <div className="w-full bg-[#ffffff]/10 rounded-full h-2.5">
             <div
-              className="bg-gradient-to-r from-blue-600 to-purple-600 h-2.5 rounded-full transition-all duration-300"
+              className="bg-[#bf3a0d] h-2.5 rounded-full transition-all duration-300"
               style={{
                 width: `${((currentQuestionIndex + 1) / questions.length) * 100}%`,
               }}
@@ -177,17 +177,17 @@ const QuestionsPage = () => {
         </div>
 
         {/* Question Card */}
-        <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8 border border-gray-100 mb-6">
+        <div className="bg-[#141712] border border-[#bf3a0d]/20 rounded-2xl shadow-xl p-6 sm:p-8 mb-6">
           {/* Question Header */}
           <div className="mb-6">
             <div className="flex items-start justify-between gap-4 mb-2">
-              <h2 className="text-xl sm:text-2xl font-semibold text-gray-800">
+              <h2 className="text-xl sm:text-2xl font-semibold text-[#ffffff]">
                 {currentQuestion.question}
               </h2>
               <span className={`px-3 py-1 text-xs font-medium rounded-full whitespace-nowrap ${
                 currentQuestion.type === 'single'
-                  ? 'bg-blue-100 text-blue-700'
-                  : 'bg-purple-100 text-purple-700'
+                  ? 'bg-[#bf3a0d]/20 text-[#bf3a0d]'
+                  : 'bg-[#bf3a0d]/20 text-[#bf3a0d]'
               }`}>
                 {currentQuestion.type === 'single' ? 'Single Choice' : 'Multiple Choice'}
               </span>
@@ -208,8 +208,8 @@ const QuestionsPage = () => {
                   onClick={() => handleOptionSelect(option)}
                   className={`w-full text-left p-4 rounded-xl border-2 transition-all duration-200 ${
                     isSelected
-                      ? 'border-blue-500 bg-blue-50 shadow-md'
-                      : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+                      ? 'border-[#bf3a0d] bg-[#bf3a0d]/10 shadow-md'
+                      : 'border-[#ffffff]/20 hover:border-[#bf3a0d]/50 hover:bg-[#ffffff]/5'
                   }`}
                 >
                   <div className="flex items-center gap-3">
@@ -219,12 +219,12 @@ const QuestionsPage = () => {
                       <div
                         className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
                           isSelected
-                            ? 'border-blue-500'
-                            : 'border-gray-300'
+                            ? 'border-[#bf3a0d]'
+                            : 'border-[#ffffff]/30'
                         }`}
                       >
                         {isSelected && (
-                          <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                          <div className="w-3 h-3 rounded-full bg-[#bf3a0d]"></div>
                         )}
                       </div>
                     ) : (
@@ -232,8 +232,8 @@ const QuestionsPage = () => {
                       <div
                         className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
                           isSelected
-                            ? 'border-blue-500 bg-blue-500'
-                            : 'border-gray-300'
+                            ? 'border-[#bf3a0d] bg-[#bf3a0d]'
+                            : 'border-[#ffffff]/30'
                         }`}
                       >
                         {isSelected && (
@@ -251,7 +251,7 @@ const QuestionsPage = () => {
                         )}
                       </div>
                     )}
-                    <span className={`${isSelected ? 'text-blue-700 font-medium' : 'text-gray-700'}`}>
+                    <span className={`${isSelected ? 'text-[#bf3a0d] font-medium' : 'text-[#ffffff]'}`}>
                       {optionText}
                     </span>
                   </div>
@@ -261,7 +261,7 @@ const QuestionsPage = () => {
           </div>
 
           {/* Hint based on question type */}
-          <p className="text-sm text-gray-500 mt-4 italic">
+          <p className="text-sm text-[#ffffff]/50 mt-4 italic">
             {currentQuestion.type === 'single' 
               ? 'Select one option' 
               : 'Select all that apply'}
@@ -270,8 +270,8 @@ const QuestionsPage = () => {
 
         {/* Error Message */}
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl">
-            <p className="text-red-600 text-sm">{error}</p>
+          <div className="mb-6 p-4 bg-[#bf3a0d]/10 border border-[#bf3a0d] rounded-xl">
+            <p className="text-[#bf3a0d] text-sm">{error}</p>
           </div>
         )}
 
@@ -281,7 +281,7 @@ const QuestionsPage = () => {
           <button
             onClick={handlePrevious}
             disabled={currentQuestionIndex === 0}
-            className="px-6 py-3 bg-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+            className="px-6 py-3 bg-[#ffffff]/10 text-[#ffffff] font-semibold rounded-xl hover:bg-[#ffffff]/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
           >
             Previous
           </button>
@@ -293,7 +293,7 @@ const QuestionsPage = () => {
             <button
               onClick={handleNext}
               disabled={!isAnswered}
-              className="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl hover:from-blue-700 hover:to-purple-700 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed disabled:shadow-none transition-all duration-200"
+              className="px-8 py-3 bg-[#bf3a0d] text-[#ffffff] font-semibold rounded-xl shadow-lg hover:shadow-xl hover:bg-[#bf3a0d]/90 disabled:bg-[#ffffff]/20 disabled:cursor-not-allowed disabled:shadow-none transition-all duration-200"
             >
               Next
             </button>
@@ -301,7 +301,7 @@ const QuestionsPage = () => {
             <button
               onClick={handleSubmit}
               disabled={!allQuestionsAnswered || isLoadingOutline}
-              className="px-8 py-3 bg-gradient-to-r from-green-600 to-blue-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl hover:from-green-700 hover:to-blue-700 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed disabled:shadow-none transition-all duration-200"
+              className="px-8 py-3 bg-[#bf3a0d] text-[#ffffff] font-semibold rounded-xl shadow-lg hover:shadow-xl hover:bg-[#bf3a0d]/90 disabled:bg-[#ffffff]/20 disabled:cursor-not-allowed disabled:shadow-none transition-all duration-200"
             >
               {isLoadingOutline ? (
                 <span className="flex items-center justify-center gap-2">
@@ -329,10 +329,10 @@ const QuestionsPage = () => {
                 onClick={() => setCurrentQuestionIndex(index)}
                 className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-200 ${
                   isCurrent
-                    ? 'bg-blue-600 text-white ring-4 ring-blue-200'
+                    ? 'bg-[#bf3a0d] text-white ring-4 ring-[#bf3a0d]/30'
                     : isAnsweredQ
-                    ? 'bg-green-500 text-white hover:bg-green-600'
-                    : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                    ? 'bg-[#bf3a0d]/70 text-white hover:bg-[#bf3a0d]'
+                    : 'bg-[#ffffff]/10 text-[#ffffff] hover:bg-[#ffffff]/20'
                 }`}
                 title={`Question ${index + 1}${isAnsweredQ ? ' (Answered)' : ''}`}
               >

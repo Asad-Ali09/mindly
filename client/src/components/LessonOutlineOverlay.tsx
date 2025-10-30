@@ -63,7 +63,7 @@ const LessonOutlineOverlay = () => {
       {/* Toggle Button */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="mb-2 px-4 py-2 bg-gray-800/90 hover:bg-gray-700/90 text-white rounded-lg shadow-lg backdrop-blur-sm transition-all duration-300 flex items-center gap-2"
+        className="mb-2 px-4 py-2 bg-[#bf3a0d]/90 hover:bg-[#bf3a0d] text-[#ffffff] rounded-lg shadow-lg backdrop-blur-sm transition-all duration-300 flex items-center gap-2"
         aria-label={isExpanded ? 'Collapse outline' : 'Expand outline'}
       >
         <span className="text-sm font-medium">Lesson Outline</span>
@@ -80,42 +80,42 @@ const LessonOutlineOverlay = () => {
 
       {/* Outline Panel */}
       <div
-        className={`bg-white/95 backdrop-blur-md rounded-lg shadow-2xl border border-gray-200 transition-all duration-300 overflow-hidden ${
+        className={`bg-[#141712]/95 backdrop-blur-md rounded-lg shadow-2xl border border-[#bf3a0d]/30 transition-all duration-300 overflow-hidden ${
           isExpanded ? 'max-h-[80vh] opacity-100' : 'max-h-0 opacity-0'
         }`}
         style={{ width: isExpanded ? '380px' : '0px' }}
       >
         <div className="p-4 max-h-[80vh] overflow-y-auto">
           {/* Header */}
-          <div className="mb-4 pb-3 border-b border-gray-200">
-            <h2 className="text-xl font-bold text-gray-800 mb-1">{lessonOutline.topic}</h2>
-            <p className="text-sm text-gray-600 mb-2">{lessonOutline.overallObjective}</p>
+          <div className="mb-4 pb-3 border-b border-[#bf3a0d]/30">
+            <h2 className="text-xl font-bold text-[#ffffff] mb-1">{lessonOutline.topic}</h2>
+            <p className="text-sm text-[#ffffff]/70 mb-2">{lessonOutline.overallObjective}</p>
             <div className="flex items-center gap-3 text-xs">
-              <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full font-medium">
+              <span className="px-2 py-1 bg-[#bf3a0d]/20 text-[#bf3a0d] rounded-full font-medium">
                 {lessonOutline.knowledgeLevel}
               </span>
-              <span className="text-gray-500">⏱ {lessonOutline.totalEstimatedDuration}</span>
+              <span className="text-[#ffffff]/60">⏱ {lessonOutline.totalEstimatedDuration}</span>
             </div>
           </div>
 
           {/* Sections */}
           <div className="space-y-3">
             {lessonOutline.sections.map((section, index) => (
-              <div key={section.id} className="border border-gray-200 rounded-lg overflow-hidden">
+              <div key={section.id} className="border border-[#bf3a0d]/30 rounded-lg overflow-hidden">
                 {/* Section Header */}
                 <button
                   onClick={() => toggleSection(section.id)}
-                  className="w-full px-3 py-2 bg-gray-50 hover:bg-gray-100 transition-colors flex items-center justify-between text-left"
+                  className="w-full px-3 py-2 bg-[#ffffff]/5 hover:bg-[#bf3a0d]/10 transition-colors flex items-center justify-between text-left"
                 >
                   <div className="flex items-center gap-2 flex-1">
-                    <span className="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold">
+                    <span className="flex-shrink-0 w-6 h-6 bg-[#bf3a0d] text-[#ffffff] rounded-full flex items-center justify-center text-xs font-bold">
                       {index + 1}
                     </span>
-                    <span className="text-sm font-semibold text-gray-800">{section.title}</span>
+                    <span className="text-sm font-semibold text-[#ffffff]">{section.title}</span>
                   </div>
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    className={`h-4 w-4 text-gray-600 transition-transform duration-200 flex-shrink-0 ${
+                    className={`h-4 w-4 text-[#ffffff]/60 transition-transform duration-200 flex-shrink-0 ${
                       expandedSections.has(section.id) ? 'rotate-180' : ''
                     }`}
                     fill="none"
@@ -132,8 +132,8 @@ const LessonOutlineOverlay = () => {
                     expandedSections.has(section.id) ? 'max-h-[500px]' : 'max-h-0'
                   }`}
                 >
-                  <div className="px-3 py-2 bg-white">
-                    <p className="text-xs text-gray-600 mb-2">{section.description}</p>
+                  <div className="px-3 py-2 bg-[#141712]">
+                    <p className="text-xs text-[#ffffff]/70 mb-2">{section.description}</p>
                     
                     {/* Pages */}
                     {section.pages && section.pages.length > 0 && (
@@ -148,29 +148,29 @@ const LessonOutlineOverlay = () => {
                                 : 'cursor-pointer'
                             } ${
                               isCurrentPage(index, pageIndex)
-                                ? 'border-blue-500 bg-blue-50'
-                                : 'border-blue-300 hover:bg-gray-50'
+                                ? 'border-[#bf3a0d] bg-[#bf3a0d]/10'
+                                : 'border-[#bf3a0d]/30 hover:bg-[#ffffff]/5'
                             }`}
                           >
                             <div className="flex items-start gap-2">
                               <span className={`text-xs font-medium flex-shrink-0 ${
-                                isCurrentPage(index, pageIndex) ? 'text-blue-700' : 'text-blue-600'
+                                isCurrentPage(index, pageIndex) ? 'text-[#bf3a0d]' : 'text-[#bf3a0d]/70'
                               }`}>
                                 {index + 1}.{pageIndex + 1}
                               </span>
                               <div className="flex-1">
                                 <h4 className={`text-xs font-medium ${
-                                  isCurrentPage(index, pageIndex) ? 'text-blue-900' : 'text-gray-800'
+                                  isCurrentPage(index, pageIndex) ? 'text-[#ffffff]' : 'text-[#ffffff]/80'
                                 }`}>
                                   {page.title}
                                   {isCurrentPage(index, pageIndex) && (
-                                    <span className="ml-2 text-xs bg-blue-500 text-white px-2 py-0.5 rounded-full">
+                                    <span className="ml-2 text-xs bg-[#bf3a0d] text-[#ffffff] px-2 py-0.5 rounded-full">
                                       Current
                                     </span>
                                   )}
                                 </h4>
-                                <p className="text-xs text-gray-500 mt-0.5">{page.description}</p>
-                                <span className="text-xs text-gray-400 mt-1 inline-block">
+                                <p className="text-xs text-[#ffffff]/50 mt-0.5">{page.description}</p>
+                                <span className="text-xs text-[#ffffff]/40 mt-1 inline-block">
                                   ⏱ {page.estimatedDuration}
                                 </span>
                               </div>
