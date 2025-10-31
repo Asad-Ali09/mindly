@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import aiService from '../services/ai.service';
+import LessonOutline from '../models/lessonOutline.model';
 
 class AIController {
   /**
@@ -41,10 +42,12 @@ class AIController {
    * Generate lesson outline based on assessment responses
    * POST /api/ai/lesson-outline
    * Body: { topic: string, responses: Record<string, string[]>, questions: AssessmentQuestion[] }
+   * Protected Route - Requires Authentication
    */
   async getLessonOutline(req: Request, res: Response) {
     try {
       const { topic, responses, questions } = req.body;
+      const user = req.user; // From auth middleware
 
       // Validation
       if (!topic || typeof topic !== 'string' || topic.trim() === '') {
@@ -68,15 +71,36 @@ class AIController {
         });
       }
 
+      // Check if user is authenticated (should be guaranteed by middleware)
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+        });
+      }
+
+      // Generate the lesson outline
       const outline = await aiService.generateLessonOutline(
         topic.trim(),
         responses,
         questions
       );
 
+      // Save the lesson outline to database
+      const savedOutline = await LessonOutline.create({
+        userId: user._id,
+        topic: outline.topic,
+        knowledgeLevel: outline.knowledgeLevel,
+        overallObjective: outline.overallObjective,
+        totalEstimatedDuration: outline.totalEstimatedDuration,
+        sections: outline.sections,
+      });
+
       return res.status(200).json({
         success: true,
         data: outline,
+        outlineId: savedOutline._id, // Return the saved outline ID
+        message: 'Lesson outline generated and saved successfully',
       });
     } catch (error) {
       console.error('Error in getLessonOutline:', error);
@@ -240,6 +264,148 @@ class AIController {
       return res.status(500).json({
         success: false,
         message: 'Failed to generate answer to question',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  /**
+   * Get all lesson outlines for the logged-in user
+   * GET /api/ai/lesson-outlines
+   * Protected Route - Requires Authentication
+   */
+  async getUserLessonOutlines(req: Request, res: Response) {
+    try {
+      const user = req.user;
+
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+        });
+      }
+
+      // Get all lesson outlines for this user, sorted by most recent
+      const outlines = await LessonOutline.find({ userId: user._id })
+        .sort({ createdAt: -1 })
+        .select('-__v')
+        .lean();
+
+      return res.status(200).json({
+        success: true,
+        data: outlines,
+        count: outlines.length,
+      });
+    } catch (error) {
+      console.error('Error in getUserLessonOutlines:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to fetch lesson outlines',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  /**
+   * Get a specific lesson outline by ID
+   * GET /api/ai/lesson-outline/:outlineId
+   * Protected Route - Requires Authentication
+   */
+  async getLessonOutlineById(req: Request, res: Response) {
+    try {
+      const user = req.user;
+      const { outlineId } = req.params;
+
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+        });
+      }
+
+      if (!outlineId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Outline ID is required',
+        });
+      }
+
+      // Find the outline and verify it belongs to this user
+      const outline = await LessonOutline.findOne({
+        _id: outlineId,
+        userId: user._id,
+      }).lean();
+
+      if (!outline) {
+        return res.status(404).json({
+          success: false,
+          message: 'Lesson outline not found or access denied',
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        data: outline,
+      });
+    } catch (error) {
+      console.error('Error in getLessonOutlineById:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to fetch lesson outline',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  /**
+   * Delete a lesson outline
+   * DELETE /api/ai/lesson-outline/:outlineId
+   * Protected Route - Requires Authentication
+   */
+  async deleteLessonOutline(req: Request, res: Response) {
+    try {
+      const user = req.user;
+      const { outlineId } = req.params;
+
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+        });
+      }
+
+      if (!outlineId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Outline ID is required',
+        });
+      }
+
+      // Find and delete the outline, verifying it belongs to this user
+      const deletedOutline = await LessonOutline.findOneAndDelete({
+        _id: outlineId,
+        userId: user._id,
+      });
+
+      if (!deletedOutline) {
+        return res.status(404).json({
+          success: false,
+          message: 'Lesson outline not found or access denied',
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: 'Lesson outline deleted successfully',
+        data: {
+          deletedId: outlineId,
+        },
+      });
+    } catch (error) {
+      console.error('Error in deleteLessonOutline:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to delete lesson outline',
         error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
