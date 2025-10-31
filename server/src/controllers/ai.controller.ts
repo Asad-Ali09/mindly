@@ -171,6 +171,79 @@ class AIController {
       });
     }
   }
+
+  /**
+   * Handle user interruption during lesson - answer questions based on lesson context
+   * POST /api/ai/answer-question
+   * Body: {
+   *   lessonOutline: LessonOutline,
+   *   completedPages: string[],
+   *   currentPageId: string,
+   *   question: string
+   * }
+   */
+  async answerLessonQuestion(req: Request, res: Response) {
+    try {
+      const { lessonOutline, completedPages, currentPageId, question } = req.body;
+
+      // Validation
+      if (!lessonOutline || typeof lessonOutline !== 'object') {
+        return res.status(400).json({
+          success: false,
+          message: 'lessonOutline is required and must be an object',
+        });
+      }
+
+      if (!completedPages || !Array.isArray(completedPages)) {
+        return res.status(400).json({
+          success: false,
+          message: 'completedPages is required and must be an array',
+        });
+      }
+
+      if (!currentPageId || typeof currentPageId !== 'string') {
+        return res.status(400).json({
+          success: false,
+          message: 'currentPageId is required and must be a string',
+        });
+      }
+
+      if (!question || typeof question !== 'string' || question.trim() === '') {
+        return res.status(400).json({
+          success: false,
+          message: 'question is required and must be a non-empty string',
+        });
+      }
+
+      const answerContent = await aiService.answerLessonQuestion(
+        lessonOutline,
+        completedPages,
+        currentPageId,
+        question.trim()
+      );
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          question: question.trim(),
+          totalDuration: answerContent.totalDuration,
+          captions: answerContent.captions,
+          animations: answerContent.animations,
+          context: {
+            currentPageId,
+            completedPagesCount: completedPages.length,
+          },
+        },
+      });
+    } catch (error) {
+      console.error('Error in answerLessonQuestion:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to generate answer to question',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
 }
 
 export default new AIController();

@@ -56,6 +56,39 @@ export interface WhiteboardContentResponse {
   message?: string;
 }
 
+export interface AnswerQuestionRequest {
+  lessonOutline: any; // Your LessonOutline type
+  completedPages: string[];
+  currentPageId: string;
+  question: string;
+}
+
+export interface AnswerQuestionResponse {
+  success: boolean;
+  data: {
+    question: string;
+    totalDuration: number;
+    captions: Array<{
+      timestamp: number;
+      text: string;
+      duration: number;
+      position?: 'bottom' | 'top' | 'middle';
+    }>;
+    animations: Array<{
+      id: string;
+      name?: string;
+      start: number;
+      duration: number;
+      loop?: boolean;
+    }>;
+    context: {
+      currentPageId: string;
+      completedPagesCount: number;
+    };
+  };
+  message?: string;
+}
+
 export interface APIError {
   success: false;
   message: string;
@@ -103,6 +136,20 @@ class AIApi {
   ): Promise<WhiteboardContentResponse> {
     const response = await apiClient.post<WhiteboardContentResponse>(
       '/ai/whiteboard-content',
+      data
+    );
+    return response.data;
+  }
+
+  /**
+   * Answer user's question during lesson (interruption feature)
+   * POST /api/ai/answer-question
+   */
+  async answerLessonQuestion(
+    data: AnswerQuestionRequest
+  ): Promise<AnswerQuestionResponse> {
+    const response = await apiClient.post<AnswerQuestionResponse>(
+      '/ai/answer-question',
       data
     );
     return response.data;

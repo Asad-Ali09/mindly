@@ -576,6 +576,209 @@ Think of this as a real classroom lecture - you wouldn't rush through explanatio
       throw error;
     }
   }
+
+  /**
+   * Generates an AI response to a user's question during a lesson
+   * Returns structured content with captions and animations (no drawings)
+   * @param lessonOutline - The complete lesson outline
+   * @param completedPages - Array of page IDs that the user has completed
+   * @param currentPageId - The current page ID where the user is asking the question
+   * @param userQuestion - The question asked by the user
+   * @returns Structured response with captions and animations
+   */
+  async answerLessonQuestion(
+    lessonOutline: LessonOutline,
+    completedPages: string[],
+    currentPageId: string,
+    userQuestion: string
+  ): Promise<{
+    question: string;
+    totalDuration: number;
+    captions: CaptionSegment[];
+    animations: AvatarAnimation[];
+  }> {
+    try {
+      // Build context about what the user has learned so far
+      const completedContent: string[] = [];
+      let currentPageDetails = null;
+
+      // Collect information about completed pages and current page
+      for (const section of lessonOutline.sections) {
+        for (const page of section.pages) {
+          if (completedPages.includes(page.id)) {
+            completedContent.push(
+              `Section: ${section.title}\nPage: ${page.title}\nContent: ${page.description}`
+            );
+          }
+          if (page.id === currentPageId) {
+            currentPageDetails = {
+              sectionTitle: section.title,
+              sectionDescription: section.description,
+              pageTitle: page.title,
+              pageDescription: page.description,
+            };
+          }
+        }
+      }
+
+      const completedContentText =
+        completedContent.length > 0
+          ? completedContent.join('\n\n')
+          : 'No pages completed yet (user is at the beginning of the lesson)';
+
+      const currentPageText = currentPageDetails
+        ? `Section: ${currentPageDetails.sectionTitle} - ${currentPageDetails.sectionDescription}\nCurrent Page: ${currentPageDetails.pageTitle}\nContent: ${currentPageDetails.pageDescription}`
+        : 'Current page information not available';
+
+      // Provide the available animations to the model
+      const animationList = JSON.stringify(animationsCfg, null, 2);
+
+      const prompt = `
+You are an expert AI tutor helping a student who has interrupted their lesson to ask a question.
+
+LESSON CONTEXT:
+Topic: "${lessonOutline.topic}"
+Overall Objective: "${lessonOutline.overallObjective}"
+Student's Knowledge Level: ${lessonOutline.knowledgeLevel}
+
+STUDENT'S PROGRESS:
+What the student has learned so far:
+${completedContentText}
+
+Current lesson content (where the student is now):
+${currentPageText}
+
+STUDENT'S QUESTION:
+"${userQuestion}"
+
+Available animations (animations.json):
+${animationList}
+
+YOUR TASK:
+Provide a clear, concise, and helpful answer broken into captions with appropriate avatar animations.
+
+IMPORTANT: Return ONLY valid JSON (no markdown, no code blocks):
+
+{
+  "totalDuration": 30,
+  "captions": [
+    {
+      "timestamp": 0,
+      "text": "Caption text that will be spoken",
+      "duration": 8,
+      "position": "bottom"
+    }
+  ],
+  "animations": [
+    {
+      "id": "talking-1",
+      "name": "Talking (1)",
+      "start": 0,
+      "duration": 5.17,
+      "loop": false
+    }
+  ]
+}
+
+CONTENT GUIDELINES:
+
+1. ANSWER STRUCTURE:
+   - Directly address the student's question
+   - Break the answer into 3-5 clear caption segments
+   - Each caption should be conversational and explanatory
+   - Use lesson context when relevant
+   - Be encouraging and supportive
+   - Match the ${lessonOutline.knowledgeLevel} knowledge level
+
+2. CAPTIONS (Primary focus):
+   - Generate 3-5 detailed captions
+   - Each caption should be a complete thought (15-25 words)
+   - Caption duration: 7-10 seconds each (slow speaking pace)
+   - Add 1-2 second gaps between captions for processing
+   - Natural, flowing language
+   - Position: "bottom" for all captions
+
+3. ANIMATIONS (Must match caption timing):
+   - Character MUST be animated during all caption playback
+   - Use appropriate animations:
+     * "talking-1" (5.17s): Main explanation
+     * "talking" (3.77s): Alternative talking
+     * "talking-2" (10.27s): Longer explanation
+     * "hands-forward-gesture" (3.10s): Introducing the answer
+     * "head-nod-yes" (2.60s): Confirming/agreeing
+     * "breathing-idle" (infinite): During gaps between captions
+   - Animation should START at the same timestamp as the caption
+   - Use "breathing-idle" during gaps
+
+4. TIMING STRATEGY:
+   - Second 0-8: First caption (acknowledge question) + "hands-forward-gesture" or "talking-1"
+   - Second 9-10: Brief pause with "breathing-idle"
+   - Second 10-18: Second caption (main answer) + "talking-2" or "talking-1"
+   - Second 19-20: Brief pause with "breathing-idle"
+   - Second 20-28: Third caption (examples/details) + "talking-1"
+   - Second 29-30: Brief pause with "breathing-idle"
+   - Continue pattern for additional captions if needed
+   - Total duration: typically 25-40 seconds for a complete answer
+
+5. PACING RULES:
+   - Speaking rate: 2.5-3 words per second (slow and clear)
+   - Minimum 1-2 seconds between captions
+   - Don't rush - clarity over speed
+   - Total answer should be concise (25-40 seconds typical)
+
+6. RESPONSE STYLE:
+   - Conversational and friendly
+   - Clear and easy to understand
+   - Directly relevant to their question
+   - Reference what they've learned when helpful
+   - Encourage continued learning
+   - Avoid revealing content they haven't reached yet
+
+EXAMPLE TIMING:
+- Caption 1: timestamp 0, duration 8 (with "hands-forward-gesture" 0-3.1, then "talking-1" 3.1-8.27)
+- Gap: 8-10 (with "breathing-idle")
+- Caption 2: timestamp 10, duration 8 (with "talking-2" 10-20.27)
+- Gap: 18-20 (with "breathing-idle")
+- Caption 3: timestamp 20, duration 7 (with "talking-1" 20-25.17)
+
+Now, generate the structured response with captions and animations:
+`;
+
+      const result = await this.model.generateContent(prompt);
+      const response = result.response;
+      const text = response.text();
+
+      // Parse the JSON response
+      const cleanedText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      const content = JSON.parse(cleanedText);
+
+      // Normalize animations and validate against known animations
+      const known = Array.isArray((animationsCfg as any).animations) ? (animationsCfg as any).animations : [];
+      const parsedAnimations: AvatarAnimation[] = Array.isArray(content.animations)
+        ? content.animations.map((a: any) => {
+            const id = a.id || (a.name && String(a.name).toLowerCase().replace(/\s+/g, '-')) || '';
+            const match = known.find((k: any) => k.id === id || (k.name && k.name.toLowerCase() === String(a.name || '').toLowerCase()));
+            return {
+              id: match ? match.id : id,
+              name: match ? match.name : a.name,
+              start: typeof a.start === 'number' ? a.start : 0,
+              duration: typeof a.duration === 'number' ? a.duration : 0,
+              loop: !!a.loop,
+            } as AvatarAnimation;
+          })
+        : [];
+
+      return {
+        question: userQuestion,
+        totalDuration: content.totalDuration || 30,
+        captions: content.captions || [],
+        animations: parsedAnimations,
+      };
+    } catch (error) {
+      console.error('Error generating answer to lesson question:', error);
+      throw error;
+    }
+  }
 }
 
 export default new AIService();
