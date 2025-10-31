@@ -26,6 +26,9 @@ import {
   TrendingDownIcon,
   Download,
   ExternalLinkIcon,
+  NotebookIcon,
+  FileTextIcon,
+  GraduationCapIcon,
 } from 'lucide-react'
 import { CornerPlusIcons } from '@/components/ui/corner-plus-icons'
 import { ActivityChartCard } from '@/components/ui/activity-chart-card'
@@ -76,17 +79,7 @@ export default function DashboardPage() {
   }, [])
 
   return (
-    <div className="dashboard-root">
-      {/* Sidebar */}
-      <Sidebar />
-
-      {/* Main Content */}
-      <div className="dashboard-main">
-        {/* Top Bar */}
-        <TopBar />
-
-        {/* Content Grid */}
-        <div className="dashboard-content">
+    <div className="dashboard-content">
           {/* Left Column */}
           <div className="dashboard-left-col">
             {/* Activity Stats Card - Optimized Component */}
@@ -352,75 +345,10 @@ export default function DashboardPage() {
             {/* <SentimentsCard data={SENTIMENTS} isReduced={isReduced} /> */}
           </div>
         </div>
-      </div>
-    </div>
   )
 }
 
 // ========== Components ==========
-
-function Sidebar() {
-  const menuItems = [
-    { icon: HomeIcon, label: 'Home', active: false },
-    { icon: VideoIcon, label: 'Meetings', active: false },
-    { icon: MessageSquareIcon, label: 'Snippets', active: false },
-    { icon: CheckSquareIcon, label: 'Action Items', active: false },
-    { icon: TagIcon, label: 'AI Tags', active: false },
-    { icon: BarChart3Icon, label: 'Analytics', active: true },
-  ]
-
-  return (
-    <aside className="sidebar">
-      <div className="sidebar-brand">
-        <div className="brand-icon">S</div>
-        <span className="brand-text">Surge AI</span>
-      </div>
-
-      <nav className="sidebar-nav">
-        {menuItems.map((item) => (
-          <button
-            key={item.label}
-            className={cn('sidebar-item', item.active && 'active')}
-          >
-            <item.icon className="sidebar-icon" />
-            <span>{item.label}</span>
-          </button>
-        ))}
-      </nav>
-    </aside>
-  )
-}
-
-function TopBar() {
-  return (
-    <header className="topbar">
-      <div className="topbar-left">
-        <div className="search-box">
-          <SearchIcon className="search-icon" />
-          <input
-            type="text"
-            placeholder="Find any discussion point…"
-            className="search-input"
-          />
-        </div>
-        <button className="chip-button">
-          <FilterIcon className="chip-icon" />
-          Filters
-        </button>
-        <button className="chip-button">
-          This month
-          <ChevronDownIcon className="chip-icon" />
-        </button>
-      </div>
-
-      <div className="topbar-right">
-        <div className="profile-avatar">
-          <span>👤</span>
-        </div>
-      </div>
-    </header>
-  )
-}
 
 function PlatformsCard({ data }: { data: typeof PLATFORMS }) {
   return (
