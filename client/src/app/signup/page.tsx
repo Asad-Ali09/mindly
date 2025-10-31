@@ -5,16 +5,16 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { AnimatedGroup } from '@/components/ui/animated-group'
-import { authApi } from '@/api'
+import { useAuthStore } from '@/store'
 
 export default function SignupPage() {
   const router = useRouter()
+  const { signup, isLoading } = useAuthStore()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [agreedToTerms, setAgreedToTerms] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -40,21 +40,14 @@ export default function SignupPage() {
       return
     }
 
-    setIsLoading(true)
-
     try {
-      const response = await authApi.signup({ name, email, password })
-      
-      if (response.success) {
-        toast.success('Account created successfully!')
-        // Redirect to home or dashboard
-        router.push('/')
-      }
+      await signup(name, email, password)
+      toast.success('Account created successfully!')
+      // Redirect to home or dashboard
+      router.push('/')
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Signup failed'
       toast.error(message)
-    } finally {
-      setIsLoading(false)
     }
   }
 

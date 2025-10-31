@@ -5,13 +5,13 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { AnimatedGroup } from '@/components/ui/animated-group'
-import { authApi } from '@/api'
+import { useAuthStore } from '@/store'
 
 export default function LoginPage() {
   const router = useRouter()
+  const { login, isLoading } = useAuthStore()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -22,21 +22,14 @@ export default function LoginPage() {
       return
     }
 
-    setIsLoading(true)
-
     try {
-      const response = await authApi.login({ email, password })
-      
-      if (response.success) {
-        toast.success('Login successful!')
-        // Redirect to home or dashboard
-        router.push('/')
-      }
+      await login(email, password)
+      toast.success('Login successful!')
+      // Redirect to home or dashboard
+      router.push('/')
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Login failed'
       toast.error(message)
-    } finally {
-      setIsLoading(false)
     }
   }
 
