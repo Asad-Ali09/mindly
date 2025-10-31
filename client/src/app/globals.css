@@ -5,18 +5,84 @@
   --rust: #bf3a0d;
   --night: #141712;
   
-  --background: var(--night);
-  --foreground: var(--white);
+  /* Light mode (if needed) */
+  --background: 0 0% 100%;
+  --foreground: 240 10% 3.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 240 10% 3.9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 240 10% 3.9%;
+  --primary: 16 89% 40%; /* rust color */
+  --primary-foreground: 0 0% 100%;
+  --secondary: 240 4.8% 95.9%;
+  --secondary-foreground: 240 5.9% 10%;
+  --muted: 240 4.8% 95.9%;
+  --muted-foreground: 240 3.8% 46.1%;
+  --accent: 16 89% 40%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 240 5.9% 90%;
+  --input: 240 5.9% 90%;
+  --ring: 16 89% 40%;
+  --radius: 0.5rem;
+}
+
+/* Dark mode - matching your theme */
+.dark {
+  --background: 80 8% 8%; /* #141712 night color */
+  --foreground: 0 0% 100%; /* white */
+  --card: 80 8% 10%;
+  --card-foreground: 0 0% 100%;
+  --popover: 80 8% 8%;
+  --popover-foreground: 0 0% 100%;
+  --primary: 16 89% 40%; /* #bf3a0d rust color */
+  --primary-foreground: 0 0% 100%;
+  --secondary: 80 8% 15%;
+  --secondary-foreground: 0 0% 100%;
+  --muted: 80 8% 20%;
+  --muted-foreground: 0 0% 65%;
+  --accent: 16 89% 40%; /* rust */
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 16 89% 40%; /* rust for borders */
+  --input: 80 8% 15%;
+  --ring: 16 89% 40%;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
   --color-white: var(--white);
   --color-rust: var(--rust);
   --color-night: var(--night);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --radius: var(--radius);
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 html, body {
@@ -24,11 +90,230 @@ html, body {
   padding: 0;
   width: 100%;
   height: 100%;
-  /* overflow: hidden; */
+  overflow-x: hidden;
 }
 
 body {
   background: var(--night);
   color: var(--white);
   font-family: Arial, Helvetica, sans-serif;
+  overscroll-behavior-y: none;
+}
+
+/* Hero Minimalism Styles */
+.minimal-hero-root {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  overflow: hidden;
+  background: #0A0B09;
+  color: #fafafa;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.hero-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(191, 58, 13, 0.3);
+  z-index: 10;
+}
+
+.hero-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #fafafa;
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+
+.hero-brand:hover {
+  opacity: 0.8;
+}
+
+.brand-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #bf3a0d 0%, #ff6b3d 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.hero-cta {
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 10px;
+  background: #bf3a0d;
+  color: #fafafa;
+  border: 1px solid rgba(191, 58, 13, 0.6);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 500;
+}
+
+.hero-cta:hover {
+  background: rgba(191, 58, 13, 0.9);
+  transform: translateY(-1px);
+}
+
+.particle-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: 0.6;
+}
+
+.accent-lines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.accent-line {
+  position: absolute;
+  background: rgba(191, 58, 13, 0.4);
+  opacity: 0.75;
+}
+
+.h-line {
+  height: 1px;
+  left: 0;
+  right: 0;
+  transform: scaleX(0);
+  animation: drawX 800ms cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+
+.v-line {
+  width: 1px;
+  top: 0;
+  bottom: 0;
+  transform: scaleY(0);
+  animation: drawY 900ms cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+
+.h-line:nth-child(1) { top: 20%; animation-delay: 150ms; }
+.h-line:nth-child(2) { top: 50%; animation-delay: 280ms; }
+.h-line:nth-child(3) { top: 80%; animation-delay: 410ms; }
+.v-line:nth-child(4) { left: 20%; animation-delay: 520ms; }
+.v-line:nth-child(5) { left: 50%; animation-delay: 640ms; }
+.v-line:nth-child(6) { left: 80%; animation-delay: 760ms; }
+
+.hero-content {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 20px;
+}
+
+.hero-kicker {
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #a1a1aa;
+  margin-bottom: 14px;
+}
+
+.hero-title {
+  font-weight: 600;
+  font-size: clamp(32px, 8vw, 88px);
+  line-height: 0.95;
+  margin: 0;
+  color: #fafafa;
+}
+
+.hero-subtitle {
+  margin-top: 18px;
+  font-size: clamp(14px, 2.2vw, 18px);
+  color: #a1a1aa;
+}
+
+.hero-footer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 32px 24px;
+  border-top: 1px solid rgba(191, 58, 13, 0.3);
+  display: grid;
+  place-items: center;
+  text-align: center;
+  gap: 6px;
+}
+
+.footer-tag {
+  font-size: 12px;
+  color: #a1a1aa;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.footer-heading {
+  font-size: 22px;
+  font-weight: 600;
+  color: #fafafa;
+}
+
+.footer-desc {
+  font-size: 14px;
+  color: #a1a1aa;
+  max-width: 680px;
+}
+
+@keyframes drawX {
+  0% { transform: scaleX(0); opacity: 0; }
+  60% { opacity: 0.9; }
+  100% { transform: scaleX(1); opacity: 0.75; }
+}
+
+@keyframes drawY {
+  0% { transform: scaleY(0); opacity: 0; }
+  60% { opacity: 0.9; }
+  100% { transform: scaleY(1); opacity: 0.75; }
+}
+
+/* Performance optimizations */
+.particle-canvas {
+  will-change: auto;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+.accent-lines,
+.accent-line {
+  will-change: auto;
+  transform: translateZ(0);
+}
+
+.minimal-hero-root {
+  contain: layout style paint;
+  transform: translateZ(0);
+}
+
+.hero-content {
+  contain: layout style;
+  transform: translateZ(0);
+}
+
+/* Smooth scrolling optimizations */
+* {
+  -webkit-overflow-scrolling: touch;
 }
