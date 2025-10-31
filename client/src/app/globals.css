@@ -4,6 +4,7 @@
   --white: #ffffff;
   --rust: #bf3a0d;
   --night: #141712;
+  --darker: #0A0B09;
   
   /* Light mode (if needed) */
   --background: 0 0% 100%;
@@ -74,6 +75,7 @@
   --color-white: var(--white);
   --color-rust: var(--rust);
   --color-night: var(--night);
+  --color-darker: var(--darker);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --radius: var(--radius);
@@ -94,7 +96,7 @@ html, body {
 }
 
 body {
-  background: var(--night);
+  background: var(--darker);
   color: var(--white);
   font-family: Arial, Helvetica, sans-serif;
   overscroll-behavior-y: none;

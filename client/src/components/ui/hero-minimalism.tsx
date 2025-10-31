@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, memo, useCallback } from "react";
 import Link from "next/link";
+import { AnimatedGroup } from "@/components/ui/animated-group";
 
 // Memoized particle canvas component
 const ParticleCanvas = memo(() => {
@@ -161,6 +162,27 @@ const ParticleCanvas = memo(() => {
 
 ParticleCanvas.displayName = "ParticleCanvas";
 
+// Animation variants for text reveal
+const transitionVariants = {
+  item: {
+    hidden: {
+      opacity: 0,
+      filter: 'blur(12px)',
+      y: 12,
+    },
+    visible: {
+      opacity: 1,
+      filter: 'blur(0px)',
+      y: 0,
+      transition: {
+        type: 'spring' as const,
+        bounce: 0.3,
+        duration: 1.5,
+      },
+    },
+  },
+};
+
 export default function MinimalHero() {
   const handleStartLearning = useCallback(() => {
     window.location.href = '/learn';
@@ -170,12 +192,45 @@ export default function MinimalHero() {
     <section className="minimal-hero-root">
       {/* Header */}
       <header className="hero-header">
-        <Link href="/" className="hero-brand">
-          <span>Mindly</span>
-        </Link>
-        <button className="hero-cta" type="button" onClick={handleStartLearning}>
-          Start Learning
-        </button>
+        <AnimatedGroup
+          variants={{
+            container: {
+              visible: {
+                transition: {
+                  staggerChildren: 0.1,
+                  delayChildren: 0,
+                },
+              },
+            },
+            item: {
+              hidden: {
+                opacity: 0,
+                y: -20,
+              },
+              visible: {
+                opacity: 1,
+                y: 0,
+                transition: {
+                  type: 'spring' as const,
+                  bounce: 0.4,
+                  duration: 1,
+                },
+              },
+            },
+          }}
+          className="w-full flex justify-between items-center"
+        >
+          <div>
+            <Link href="/" className="hero-brand">
+              <span>Mindly</span>
+            </Link>
+          </div>
+          <div>
+            <button className="hero-cta" type="button" onClick={handleStartLearning}>
+              Start Learning
+            </button>
+          </div>
+        </AnimatedGroup>
       </header>
 
       {/* Particles */}
@@ -193,24 +248,62 @@ export default function MinimalHero() {
 
       {/* Hero Content */}
       <main className="hero-content">
-        <div>
-          <div className="hero-kicker">AI-Powered Learning</div>
-          <h1 className="hero-title">
-            Learn Smarter.<br />Not Harder.
-          </h1>
-          <p className="hero-subtitle">
-            Master any subject with personalized AI guidance that adapts to your pace.
-          </p>
-        </div>
+        <AnimatedGroup
+          variants={{
+            container: {
+              visible: {
+                transition: {
+                  staggerChildren: 0.15,
+                  delayChildren: 0.2,
+                },
+              },
+            },
+            ...transitionVariants,
+          }}
+        >
+          <div>
+            <div className="hero-kicker">AI-Powered Learning</div>
+          </div>
+          <div>
+            <h1 className="hero-title">
+              Learn Smarter.<br />Not Harder.
+            </h1>
+          </div>
+          <div>
+            <p className="hero-subtitle">
+              Master any subject with personalized AI guidance that adapts to your pace.
+            </p>
+          </div>
+        </AnimatedGroup>
       </main>
 
       {/* Footer */}
       <section className="hero-footer">
-        <div className="footer-tag">Built for learners</div>
-        <div className="footer-heading">Personalized. Interactive. Effective.</div>
-        <p className="footer-desc">
-          Experience AI-powered learning that understands your style, tracks your progress, and makes education engaging and effective.
-        </p>
+        <AnimatedGroup
+          variants={{
+            container: {
+              visible: {
+                transition: {
+                  staggerChildren: 0.12,
+                  delayChildren: 0.5,
+                },
+              },
+            },
+            ...transitionVariants,
+          }}
+        >
+          <div>
+            <div className="footer-tag">Built for learners</div>
+          </div>
+          <div>
+            <div className="footer-heading">Personalized. Interactive. Effective.</div>
+          </div>
+          <div>
+            <p className="footer-desc">
+              Experience AI-powered learning that understands your style, tracks your progress, and makes education engaging and effective.
+            </p>
+          </div>
+        </AnimatedGroup>
       </section>
     </section>
   );
