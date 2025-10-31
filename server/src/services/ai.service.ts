@@ -127,11 +127,22 @@ class AIService {
       const prompt = `
 Generate 4 to 6 multiple choice questions to assess a student's current knowledge level about "${topic}".
 
+CONTEXT: The learning platform uses a 3D AI teacher that explains concepts on a digital whiteboard using text, diagrams, and canvas drawings. The teaching is interactive - students can interrupt and ask questions anytime.
+
 The questions should help understand:
-1. What they already know about the topic
-2. What specific aspects they want to learn
-3. Their learning goals and use cases
-4. Their preferred learning style
+1. The student's current knowledge level and experience with "${topic}"
+2. What specific aspects or subtopics they want to learn
+3. Their learning goals and practical use cases
+4. The depth of understanding they're seeking
+
+CRITICAL RULES FOR QUESTION DESIGN:
+- DO NOT ask about learning styles (videos, images, reading, etc.) - all teaching is whiteboard-based
+- DO NOT ask about preferred media formats - only text and drawings are available
+- Questions MUST be relevant to understanding their knowledge level and learning goals
+- Each question should be INDEPENDENT or logically flow from previous answers
+- If questions are dependent (e.g., asking about advanced topics after user indicates beginner level), make options adaptable to all levels
+- Focus on WHAT they want to learn, not HOW they want to learn
+- Questions should help personalize the content difficulty and focus areas
 
 IMPORTANT: Return ONLY a valid JSON array with the following structure. Do not include any explanatory text, markdown formatting, or code blocks:
 
@@ -149,13 +160,34 @@ IMPORTANT: Return ONLY a valid JSON array with the following structure. Do not i
   }
 ]
 
-Rules:
+FORMAT RULES:
 - Generate 4-6 questions
 - type can be "single" (single select) or "multiple" (multiple select)
 - Each question should have 4 options
 - Use ids: a, b, c, d for options
 - For multiple select questions, add "(Select all that apply)" to the question text
 - Make questions conversational and relevant to ${topic}
+
+EXAMPLE QUESTION FLOW FOR PYTHON:
+1. "What's your current experience level with ${topic}?" (Beginner/Some basics/Intermediate/Advanced)
+2. "What's your primary goal for learning ${topic}?" (Career/Personal projects/Academic/Hobby)
+3. For beginners: "Which fundamentals are you most interested in?" (Variables & data types/Control flow/Functions/All of these)
+   For advanced: "Which advanced topics interest you?" (Async programming/Decorators/Metaclasses/Performance optimization)
+4. "What would you like to build or accomplish?" (Web apps/Data analysis/Automation scripts/Just understand concepts)
+5. "How deep do you want to go?" (Basic overview/Practical skills/Deep understanding/Expert level)
+
+QUESTIONS TO AVOID:
+- ❌ "Which learning style do you prefer?" (videos, images, hands-on, reading)
+- ❌ "Do you prefer visual or text-based learning?"
+- ❌ "What type of content works best for you?"
+- ❌ Any question about media preferences or learning formats
+
+GOOD QUESTIONS:
+- ✅ "What's your experience level with ${topic}?"
+- ✅ "Which aspects of ${topic} are you most interested in?"
+- ✅ "What do you want to accomplish by learning ${topic}?"
+- ✅ "Are there specific problems you want to solve?"
+- ✅ "How much time can you dedicate to learning?"
 `;
 
       const result = await this.model.generateContent(prompt);
@@ -325,7 +357,7 @@ This page is part of the larger lesson structure. Consider how this page fits in
   }
 
   const prompt = `
-You are an expert AI tutor creating HIGHLY ENGAGING animated whiteboard content for teaching. Your PRIMARY GOAL is to explain concepts thoroughly and engagingly through detailed narration and appropriate character animations.
+You are an expert AI tutor creating HIGHLY ENGAGING animated whiteboard content for teaching. Your goal is to create a balanced, visually-rich learning experience that combines clear narration with strategic visual elements.
 
 Topic: "${topic}"
 Page: "${pageTitle}"
@@ -336,10 +368,17 @@ Available animations (animations.json):
 ${animationList}
 
 🎯 CONTENT PHILOSOPHY:
-- EXPLANATIONS FIRST: Prioritize detailed, clear verbal explanations over complex drawings
-- ENGAGEMENT: Keep the student engaged through conversational, flowing narration
-- VISUAL SUPPORT: Use drawings as visual aids to support the explanation, not as the main content
-- ANIMATIONS: The character should be actively animated throughout the explanation to maintain engagement
+- VISUAL-FIRST TEACHING: Use diagrams, figures, and drawings as PRIMARY teaching tools
+- BALANCED APPROACH: Combine visual explanations with clear narration (50% visual, 50% verbal)
+- CREATIVE PRESENTATION: Think of unique, memorable ways to present each concept
+- SPATIAL AWARENESS: Carefully plan layout to prevent overlapping and ensure everything fits on canvas
+- ANIMATIONS: Keep the character animated throughout to maintain engagement
+
+CANVAS CONSTRAINTS:
+- Canvas size: 800x600 pixels
+- Safe zone for content: x: 50-750, y: 50-550 (avoid edges)
+- Reserve space: Top (y: 50-100) for titles, Bottom (y: 500-550) for captions
+- Main content area: x: 50-750, y: 100-500
 
 IMPORTANT: Return ONLY valid JSON (no markdown, no code blocks):
 
@@ -376,166 +415,298 @@ IMPORTANT: Return ONLY valid JSON (no markdown, no code blocks):
 
 DRAWING TYPES AND PROPERTIES:
 
+CRITICAL POSITIONING RULE FOR ALL ELEMENTS:
+- When you want something CENTERED at position x=400, you must account for the element's width/size
+- For TEXT: If you want text centered at x=400, calculate approximate text width and start at (400 - textWidth/2)
+  * Example: "Hello" (5 chars, fontSize 20) ≈ 50px wide → start at x=375 to center at x=400
+  * Example: "Variables" (9 chars, fontSize 24) ≈ 108px wide → start at x=346 to center at x=400
+  * Rule of thumb: Each character ≈ fontSize * 0.5 pixels wide
+- For SHAPES: start position should be calculated to CENTER the shape at desired location
+- For CENTERED TITLE at top: Calculate text width, start at (400 - textWidth/2) with y=70
+
 1. "text": Display text
-   - start: {x, y} - position
-   - text: "string" - the text
-   - fontSize: number (default 20)
-   - color, lineWidth, duration
+   - start: {x, y} - STARTING position of text (left edge of first character)
+   - text: "string" - the text content
+   - fontSize: number (default 20, range: 18-28 for readability)
+   - color, lineWidth (usually 0 for text), duration
+   - CENTERING: To center text at x=C, use x = C - (textLength * fontSize * 0.5 / 2)
+   - Example: Center "Python Basics" at 400 → text width ≈ 13 * 24 * 0.5 = 156px → start x = 400 - 78 = 322
 
 2. "line": Straight line
    - points: [{x, y}, {x, y}] - start and end points (or multiple points for connected lines)
    - color, lineWidth, duration
+   - For centered horizontal lines: calculate to span equally from center
 
 3. "circle": Circle shape
-   - start: {x, y} - center point
+   - start: {x, y} - CENTER point of the circle
    - radius: number
    - color, lineWidth, duration
+   - This is already centered correctly at start position
 
 4. "rectangle": Rectangle/box
-   - start: {x, y} - top-left corner
+   - start: {x, y} - TOP-LEFT corner position
    - width: number
    - height: number
    - color, lineWidth, duration
+   - CENTERING: To center rect at x=C, use x = C - (width/2), y = desiredY - (height/2) for vertical center
 
 5. "arrow": Directional arrow
-   - start: {x, y} - arrow start
-   - end: {x, y} - arrow end (points to)
+   - start: {x, y} - arrow tail (starting point)
+   - end: {x, y} - arrow head (points to)
    - color, lineWidth, duration
+   - CENTERING: For horizontal arrows, calculate to span equally from desired center
 
 6. "curve": Smooth curve
    - points: [{x, y}, {x, y}, ...] - multiple points for smooth curve
    - color, lineWidth, duration
+   - CENTERING: Middle point in points array should be near desired center
 
 7. "highlighter": Semi-transparent highlight
-   - start: {x, y} - top-left
+   - start: {x, y} - TOP-LEFT corner position
    - width: number
    - height: number
    - color, opacity (0.3), lineWidth (usually 0), duration
+   - CENTERING: To center at x=C, use x = C - (width/2)
 
 8. "polygon": Multi-sided shape
    - points: [{x, y}, ...] - vertices
    - fill: boolean (optional)
    - color, lineWidth, duration
+   - CENTERING: Calculate centroid of points and adjust all points to center shape at desired location
 
 9. "angle": Angle marker with arc
-   - start: {x, y} - vertex point
+   - start: {x, y} - vertex point (pivot point of angle)
    - radius: number - arc radius
    - degrees: number - angle in degrees
    - color, lineWidth, duration
 
 10. "dashed-line": Dashed/dotted line
-    - start: {x, y}
-    - end: {x, y}
+    - start: {x, y} - line start
+    - end: {x, y} - line end
     - dashPattern: [5, 5] - dash and gap lengths
     - color, lineWidth, duration
 
 11. "axis": Coordinate system
-    - start: {x, y} - top-left corner
+    - start: {x, y} - TOP-LEFT corner position
     - width: number
     - height: number
     - color, lineWidth, duration
+    - CENTERING: To center at x=C, use x = C - (width/2)
 
 CANVAS DIMENSIONS: 800x600 (design for this size)
 
 📚 CONTENT STRUCTURE GUIDELINES:
 
-1. CAPTIONS (HIGHEST PRIORITY - 70% of focus):
-   - Generate 5-8 detailed captions that tell a complete story
-   - Each caption should be conversational and explanatory (like a teacher speaking)
-   - Caption duration: 6-10 seconds each (LONGER for proper speaking pace)
-   - IMPORTANT: Add 1-2 second gaps between captions to allow processing time
-   - Use natural, flowing language that builds understanding step-by-step
-   - Include examples, analogies, and real-world connections
-   - Each caption should be a complete thought that can be spoken naturally
-   - Think of captions as the PRIMARY teaching tool
-   - Example caption: "Let me explain why this is important. When we look at chemical formulas, we're actually seeing a shorthand that chemists use to communicate. It's like a universal language that tells us exactly what atoms are present and in what quantities."
-   - TIMING EXAMPLE:
-     * Caption 1: timestamp 0, duration 7 seconds
-     * Caption 2: timestamp 8 (1 second gap), duration 8 seconds  
-     * Caption 3: timestamp 17 (1 second gap), duration 6 seconds
+1. DRAWINGS & FIGURES (PRIMARY FOCUS - 50% of attention):
+   - Create 6-10 visual elements per page (diagrams, shapes, text labels, arrows, etc.)
+   - LAYOUT PLANNING: Plan the entire visual layout BEFORE setting timestamps
+   - Use a grid mental model: divide canvas into sections for organized content
+   - Visual types to use:
+     * Title text at top (y: 60-80)
+     * Concept diagrams in center (x: 100-700, y: 150-400)
+     * Labels and annotations near their related visuals
+     * Arrows to show relationships and flow
+     * Boxes/circles to group related concepts
+     * Highlighters for emphasis (use sparingly)
+   - SPACING RULES:
+     * Minimum 20px between visual elements
+     * Text elements: fontSize 18-24 for readability
+     * Leave 10% margin from canvas edges
+     * Check for overlaps: if two elements are close, offset them
+   - Drawing timing: Space out by 3-6 seconds (faster pace than before)
+   - Each drawing duration: 0.3-0.6 seconds (quick reveal)
+   - Build visuals progressively (step-by-step revelation)
 
-2. ANIMATIONS (CRITICAL - 25% of focus):
-   - Character MUST be animated whenever speaking (captions are playing)
-   - Use varied animations to maintain visual interest
-   - Animation types to use:
-     * "talking-1" (5.17s): Main teaching animation - use frequently
-     * "talking" (3.77s): Alternative talking animation for variety
-     * "talking-2" (10.27s): Emphatic/passionate explanation
-     * "hands-forward-gesture" (3.10s): Presenting or introducing concepts
-     * "head-nod-yes" (2.60s): Confirming understanding or agreement
-     * "standing-arguing" (20.80s): Passionate/detailed explanation (for longer segments)
-     * "breathing-idle" (infinite): Use during gaps between captions (1-2 seconds)
-   - Sequence animations to match caption timing and content mood
-   - Example: Start with "hands-forward-gesture" (introduction) → "talking-1" (main explanation) → "breathing-idle" (brief pause) → "talking-2" (next point)
-   - Animation should START at the same time as the caption it accompanies
+2. CREATIVE PRESENTATION TECHNIQUES:
+   Choose one unique approach per page:
+   - 🎨 Visual Metaphor: Use familiar shapes/objects to explain abstract concepts
+   - 📊 Progressive Building: Start simple, add complexity layer by layer
+   - 🔄 Comparison Layout: Split screen to compare two concepts side-by-side
+   - 🎯 Central Focus: Main concept in center, supporting details radiating outward
+   - 📈 Sequential Flow: Left-to-right or top-to-bottom progression with arrows
+   - 🧩 Puzzle Pieces: Show how components fit together
+   - 🌳 Tree/Hierarchy: Parent-child relationships branching out
+   - 🔢 Numbered Steps: Visual step-by-step process with clear numbering
+   - 💡 Before/After: Show transformation or change clearly
+   - 🎭 Story Visualization: Tell a mini-story through sequential drawings
+   
+   Example layouts:
+   - For definitions: Large term at top, definition below, example at bottom
+   - For processes: Numbered boxes connected with arrows (flow diagram)
+   - For comparisons: Two columns with pros/cons or differences
+   - For hierarchies: Tree structure with branches
+   - For formulas: Large formula in center, annotations pointing to each part
 
-3. DRAWINGS (SUPPORTING ROLE - 5% of focus):
-   - Use 3-5 strategic visual elements (LESS is MORE)
-   - CRITICAL: Space drawings with 8-15 second intervals (SLOW DOWN!)
-   - Drawings should appear DURING caption playback, not before
-   - Each drawing animation duration: 0.5-1.0 seconds (slower reveal)
-   - Coordinate drawing appearance with what's being said in captions
-   - Use drawings for:
-     * Page title (text at top) - appears in first 2 seconds
-     * Key terms or definitions (text) - when mentioned in caption
-     * Simple diagrams or illustrations - to support explanation
-     * Arrows to show relationships - when explaining connections
-     * Highlights to emphasize points - when stressing importance
-   - DON'T create complex diagrams - the explanation is more important
-   - DRAWING TIMING EXAMPLE:
-     * Drawing 1 (title): timestamp 0, duration 0.8s
-     * Drawing 2 (key term): timestamp 12, duration 0.7s (appears during 2nd caption)
-     * Drawing 3 (diagram): timestamp 25, duration 1.0s (appears during 3rd caption)
+3. CAPTIONS (SUPPORTING ROLE - 25% of attention):
+   - Generate 4-6 concise captions (NOT 5-8 like before)
+   - Each caption: 20-30 words maximum (8-12 seconds duration)
+   - CRITICAL: 2-3 second gaps between ALL captions (longer pauses)
+   - Captions should describe what's being drawn or direct attention
+   - Use captions to guide visual understanding, not as primary teaching tool
+   - Position: "bottom" for all captions to avoid content overlap
+   - TIMING PATTERN:
+     * Caption 1: timestamp 0, duration 10 seconds
+     * GAP: 2-3 seconds (no caption)
+     * Caption 2: timestamp 13, duration 9 seconds
+     * GAP: 2-3 seconds
+     * Caption 3: timestamp 25, duration 10 seconds
+     * Continue pattern...
 
-4. TIMING STRATEGY FOR 30-60 SECOND PAGES:
-   - Second 0-2: Page title appears + welcoming animation starts
-   - Second 0-7: First caption (introduction) + "hands-forward-gesture" animation
-   - Second 8-15: Second caption (main concept) + "talking-1" animation, key drawing at ~12s
-   - Second 16-17: Brief pause with "breathing-idle"
-   - Second 17-25: Third caption (detailed explanation) + "talking-2" animation
-   - Second 26-35: Fourth caption (examples/application) + "talking-1" animation, supporting drawing at ~30s
-   - Second 36-37: Brief pause
-   - Second 37-45: Fifth caption (summary) + "head-nod-yes" then "talking" animation
-   - Ensure character is ALWAYS animated (talking or breathing)
-   - Drawings appear strategically during explanations, not all at once
+4. ANIMATIONS (25% of attention):
+   - Character MUST be animated during caption playback
+   - Use "breathing-idle" during ALL gaps between captions (2-3 seconds)
+   - Animation sequence:
+     * "hands-forward-gesture" (3.10s): When introducing visuals
+     * "talking-1" (5.17s): During explanations
+     * "talking-2" (10.27s): For longer explanations
+     * "talking" (3.77s): For variety
+     * "head-nod-yes" (2.60s): When confirming concepts
+     * "breathing-idle" (infinite): During gaps (ALWAYS)
+   - Animations must start at same timestamp as captions
+   - Switch to "breathing-idle" immediately when caption ends
 
-⏱️ PACING RULES (CRITICAL):
-- Average speaking rate: 150-170 words per minute (2.5-3 words per second)
-- Caption text length: 15-25 words per caption (6-10 seconds to speak naturally)
-- Gaps between captions: 1-2 seconds (breathing room)
-- Drawing intervals: Minimum 8-12 seconds apart
-- Don't rush - quality explanation > quantity of content
-- If page duration is 30 seconds: 4-5 captions MAX
-- If page duration is 45 seconds: 6-7 captions MAX
-- If page duration is 60 seconds: 7-8 captions MAX
+⏱️ REVISED PACING RULES:
+- Caption duration: 8-12 seconds each (LONGER than before)
+- Gaps between captions: 2-3 seconds (MANDATORY - increased from 1-2)
+- Drawing intervals: 3-6 seconds apart (FASTER - more visuals)
+- Drawing reveal duration: 0.3-0.6 seconds (quick appearance)
+- Page duration targets:
+  * 30 seconds: 4 captions + 6-8 drawings
+  * 45 seconds: 5 captions + 8-10 drawings
+  * 60 seconds: 6 captions + 10-12 drawings
+
+📐 LAYOUT PLANNING PROCESS:
+Step 1: Sketch mental layout (which visual goes where)
+Step 2: Assign coordinates ensuring no overlaps
+Step 3: Plan drawing sequence (which appears first, second, etc.)
+Step 4: Set timestamps with 3-6 second spacing
+Step 5: Write captions that reference the visuals
+
+OVERLAP PREVENTION CHECKLIST:
+- [ ] Title is at top (y < 100), captions at bottom (no caption position conflicts)
+- [ ] Main visuals are in center zone (y: 150-450)
+- [ ] Text labels are positioned near (but not on top of) their visual elements
+- [ ] Elements have at least 20px spacing between them
+- [ ] Nothing is positioned at x < 50 or x > 750
+- [ ] Nothing is positioned at y < 50 or y > 550
+- [ ] Arrows/lines connect elements without crossing through other elements
+
+📏 COORDINATE EXAMPLES (800x600 canvas):
+- Page title: MUST BE CENTERED - For "Python Basics" (13 chars, fontSize 24):
+  * Text width ≈ 13 * 24 * 0.5 = 156px
+  * Start x = 400 - (156/2) = 322, y = 70
+  * Result: Text is properly centered at x=400
+  
+- Centered title (shorter): For "Variables" (9 chars, fontSize 24):
+  * Text width ≈ 9 * 24 * 0.5 = 108px
+  * Start x = 400 - (108/2) = 346, y = 70
+
+- Centered box in middle: Box 200x100 at center
+  * Start x = 400 - (200/2) = 300, y = 300 - (100/2) = 250
+  
+- Top-left quadrant content: x: 100-350, y: 150-300
+- Top-right quadrant content: x: 450-700, y: 150-300
+- Bottom-left quadrant content: x: 100-350, y: 320-450
+- Bottom-right quadrant content: x: 450-700, y: 320-450
+- Center zone: x: 300-500, y: 250-350
+
+TEXT CENTERING FORMULA:
+startX = desiredCenterX - (characterCount * fontSize * 0.5) / 2
+
+COMMON TEXT CALCULATIONS (for centering at x=400):
+- 5 chars, fontSize 20: startX = 400 - 25 = 375
+- 8 chars, fontSize 22: startX = 400 - 44 = 356
+- 10 chars, fontSize 24: startX = 400 - 60 = 340
+- 15 chars, fontSize 20: startX = 400 - 75 = 325
+- 20 chars, fontSize 18: startX = 400 - 90 = 310
 
 🎨 COLOR PALETTE (Use strategically):
-- Titles: #2563eb (blue)
-- Main content: #059669 (green), #1f2937 (dark gray)
-- Emphasis: #dc2626 (red), #7c3aed (purple)
-- Highlights: #fbbf24 (yellow/gold)
-- Secondary: #6366f1 (indigo)
+- Titles: #2563eb (blue) - high contrast, easy to read
+- Main content: #1f2937 (dark gray) - primary text and shapes
+- Emphasis/Important: #dc2626 (red) - key points, warnings
+- Secondary concepts: #059669 (green) - supporting information
+- Accents: #7c3aed (purple), #6366f1 (indigo) - decorative elements
+- Highlights: #fbbf24 (yellow/gold, opacity: 0.3) - emphasize areas
+- Use consistent colors for similar concept types
+
+🎯 TIMING STRATEGY EXAMPLE (45-second page):
+Second 0: Title appears (text, center-top)
+Second 0-10: Caption 1 + "hands-forward-gesture" animation
+Second 3: First visual element (main concept shape/diagram)
+Second 6: Second visual (supporting element)
+Second 9: Third visual (label or annotation)
+Second 10-13: GAP - "breathing-idle" animation (NO caption)
+Second 13-22: Caption 2 + "talking-1" animation
+Second 15: Fourth visual (connecting arrow or relationship)
+Second 18: Fifth visual (example or detail)
+Second 21: Sixth visual (highlight or emphasis)
+Second 22-25: GAP - "breathing-idle" animation
+Second 25-35: Caption 3 + "talking-2" animation
+Second 27: Seventh visual (summary element)
+Second 30: Eighth visual (final connection)
+Second 35-38: GAP - "breathing-idle" animation
+Second 38-45: Caption 4 + "talking-1" animation (conclusion)
+Second 40: Ninth visual (reinforcement)
+
+UNIQUE PRESENTATION EXAMPLES:
+
+Example 1 - Teaching "Variables in Python":
+- Approach: Visual Metaphor (Container/Box concept)
+- Layout: Large box in center, label on top, value inside
+- Sequence: Draw box → Add label "name" → Show value "John" inside → Draw arrow showing assignment
+- Captions reference the visual metaphor throughout
+
+Example 2 - Teaching "Photosynthesis":
+- Approach: Process Flow
+- Layout: Left (inputs) → Center (process) → Right (outputs)
+- Sequence: Sun + Water + CO2 on left → Plant in center → Oxygen + Glucose on right
+- Arrows show direction of flow
+
+Example 3 - Teaching "Fractions":
+- Approach: Visual Division
+- Layout: Circle divided into parts with different colors
+- Sequence: Whole circle → Division lines → Shading portions → Labeling fractions
+- Compare multiple circles side-by-side
 
 ✅ QUALITY CHECKLIST:
-- [ ] Captions have proper 1-2 second gaps between them (not continuous)
-- [ ] Each caption duration matches natural speaking pace (6-10 seconds)
-- [ ] Character is animated during all caption playback
-- [ ] "breathing-idle" used during gaps between captions
-- [ ] Animations start at same timestamp as their corresponding captions
-- [ ] Drawings are spaced 8-15 seconds apart (slow pacing)
-- [ ] Drawing duration is 0.5-1.0 seconds (slow reveal)
-- [ ] Drawings appear DURING captions, coordinated with what's being said
-- [ ] Total number of captions fits the duration (4-5 for 30s, 6-7 for 45s, 7-8 for 60s)
-- [ ] Content is engaging but NOT rushed
-- [ ] Student has time to process each concept before moving to the next
+- [ ] 4-6 captions total (not more)
+- [ ] Each caption is 8-12 seconds duration (LONGER)
+- [ ] 2-3 second gaps between ALL captions (LONGER gaps)
+- [ ] 6-10 visual elements (drawings/diagrams)
+- [ ] Drawings spaced 3-6 seconds apart (FASTER than captions)
+- [ ] Drawing duration 0.3-0.6 seconds (quick reveal)
+- [ ] Character animated during all captions
+- [ ] "breathing-idle" during ALL gaps
+- [ ] No overlapping elements (20px minimum spacing)
+- [ ] All content within safe zone (x: 50-750, y: 50-550)
+- [ ] Title at top (y < 100), captions at bottom (no position conflicts)
+- [ ] **ALL TEXT IS PROPERLY CENTERED using the formula: startX = centerX - (textWidth/2)**
+- [ ] **Titles use calculated startX, NOT just x=400**
+- [ ] **Rectangles/boxes centered by adjusting start position**
+- [ ] Creative presentation technique chosen and applied
+- [ ] Visuals build progressively (step-by-step)
+- [ ] Colors used consistently and strategically
+- [ ] Layout is balanced and organized
+- [ ] Captions reference and guide the visual content
 
-🎯 REMEMBER: SLOW DOWN! Quality teaching requires proper pacing. The student needs time to:
-1. Listen to the explanation (caption)
-2. Process what was said (gap between captions)
-3. Look at visual aids (drawings appear during explanation)
-4. Connect the concepts (animations help maintain engagement)
+🎯 REMEMBER: 
+1. VISUALS ARE PRIMARY - Drawings and figures are the main teaching tool
+2. LONGER GAPS - 2-3 seconds between captions (increased for processing)
+3. MORE DRAWINGS - 6-10 visual elements per page (increased focus on visuals)
+4. FASTER DRAWING PACE - New visual every 3-6 seconds
+5. PREVENT OVERLAPS - Plan layout carefully, maintain spacing
+6. STAY IN BOUNDS - All content within canvas safe zone
+7. BE CREATIVE - Use unique presentation approach for each concept
+8. BUILD PROGRESSIVELY - Reveal visuals step-by-step, not all at once
+9. **CENTER TEXT PROPERLY** - Calculate startX = centerX - (textWidth/2), don't just use centerX
+10. **CENTER ALL ELEMENTS** - For rectangles, use start = center - (size/2)
 
-Think of this as a real classroom lecture - you wouldn't rush through explanations. Give each concept time to breathe!
+CRITICAL CENTERING REMINDER:
+❌ WRONG: {type: "text", start: {x: 400, y: 70}, text: "Python Basics", fontSize: 24}
+✅ CORRECT: {type: "text", start: {x: 322, y: 70}, text: "Python Basics", fontSize: 24}
+(Because text width ≈ 156px, so start at 400-78=322 to center at 400)
+
+The goal is a visually-rich, well-paced lesson where students learn primarily by seeing the concepts illustrated on the whiteboard, with captions providing concise guidance and context. All text and elements must be properly centered, not just starting from the center point.
 `;
 
       const result = await this.model.generateContent(prompt);
