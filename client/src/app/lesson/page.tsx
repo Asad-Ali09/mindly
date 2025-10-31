@@ -229,26 +229,26 @@ const LessonPage = () => {
   };
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="h-screen flex flex-col bg-[#141712]">
       {/* Header */}
-      <div className="bg-gray-800 text-white px-6 py-3 flex items-center justify-between shadow-lg">
+      <div className="bg-[#141712] border-b border-[#bf3a0d]/20 text-[#ffffff] px-6 py-3 flex items-center justify-between shadow-lg">
         <div className="flex gap-3">
           <button
             onClick={isPlaying ? handlePause : handleStart}
             disabled={!lesson || isLoadingWhiteboard}
-            className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg transition-colors"
+            className="px-4 py-2 bg-[#bf3a0d] hover:bg-[#bf3a0d]/90 disabled:bg-[#ffffff]/20 disabled:cursor-not-allowed rounded-lg transition-colors"
           > 
             {isPlaying ? '⏸ Pause' : '▶ Play'}
           </button>
           <button
             onClick={handleReset}
-            className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+            className="px-4 py-2 bg-[#bf3a0d]/70 hover:bg-[#bf3a0d] rounded-lg transition-colors"
           >
             ⏹ Reset
           </button>
           <button
             onClick={handleClear}
-            className="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg transition-colors"
+            className="px-4 py-2 bg-[#ffffff]/10 hover:bg-[#ffffff]/20 rounded-lg transition-colors"
           >
             Clear
           </button>
@@ -259,10 +259,10 @@ const LessonPage = () => {
           {/* Audio fetch status */}
           {(audioTotal > 0) && (
             <div className="text-sm px-3 py-1 rounded-md flex items-center gap-2"
-                 style={{ background: audioFetchLoading ? 'rgba(250, 204, 21, 0.12)' : 'rgba(16,185,129,0.08)', color: audioFetchLoading ? '#b45309' : '#10b981' }}>
+                 style={{ background: audioFetchLoading ? 'rgba(191, 58, 13, 0.15)' : 'rgba(191, 58, 13, 0.1)', color: audioFetchLoading ? '#bf3a0d' : '#bf3a0d' }}>
               {audioFetchLoading ? (
                 <>
-                  <div className="w-3 h-3 rounded-full animate-pulse" style={{ background: '#b45309' }} />
+                  <div className="w-3 h-3 rounded-full animate-pulse" style={{ background: '#bf3a0d' }} />
                   <span>Loading audio: {audioFetched}/{audioTotal}</span>
                 </>
               ) : (
@@ -271,15 +271,15 @@ const LessonPage = () => {
             </div>
           )}
           {pageInfo && (
-            <div className="text-sm bg-gray-700 px-4 py-2 rounded-lg">
-              <span className="text-gray-400">Section {currentSectionIndex + 1}, Page {currentPageIndex + 1}:</span>
-              <span className="ml-2 font-semibold">{pageInfo.page.title}</span>
+            <div className="text-sm bg-[#ffffff]/10 px-4 py-2 rounded-lg">
+              <span className="text-[#ffffff]/60">Section {currentSectionIndex + 1}, Page {currentPageIndex + 1}:</span>
+              <span className="ml-2 font-semibold text-[#ffffff]">{pageInfo.page.title}</span>
             </div>
           )}
           <button
             onClick={handlePreviousPage}
             disabled={!canGoPrevious}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg transition-colors flex items-center gap-2"
+            className="px-4 py-2 bg-[#bf3a0d] hover:bg-[#bf3a0d]/90 disabled:bg-[#ffffff]/20 disabled:cursor-not-allowed rounded-lg transition-colors flex items-center gap-2"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
@@ -289,7 +289,7 @@ const LessonPage = () => {
           <button
             onClick={handleNextPage}
             disabled={!canGoNext}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg transition-colors flex items-center gap-2"
+            className="px-4 py-2 bg-[#bf3a0d] hover:bg-[#bf3a0d]/90 disabled:bg-[#ffffff]/20 disabled:cursor-not-allowed rounded-lg transition-colors flex items-center gap-2"
           >
             Next
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -301,44 +301,44 @@ const LessonPage = () => {
 
       {/* Progress Bar */}
       {lesson && (
-        <div className="bg-gray-700 px-6 py-2">
+        <div className="bg-[#141712] border-b border-[#bf3a0d]/20 px-6 py-2">
           <div className="flex items-center gap-4">
-            <span className="text-white text-sm min-w-[80px]">
+            <span className="text-[#ffffff] text-sm min-w-[80px]">
               {currentTime.toFixed(1)}s / {lesson.totalDuration}s
             </span>
-            <div className="flex-1 bg-gray-600 rounded-full h-2">
+            <div className="flex-1 bg-[#ffffff]/10 rounded-full h-2">
               <div
-                className="bg-blue-500 h-2 rounded-full transition-all duration-100"
+                className="bg-[#bf3a0d] h-2 rounded-full transition-all duration-100"
                 style={{ width: `${(currentTime / lesson.totalDuration) * 100}%` }}
               />
             </div>
-            <span className="text-white text-sm font-medium">{lesson.topic}</span>
+            <span className="text-[#ffffff] text-sm font-medium">{lesson.topic}</span>
           </div>
         </div>
       )}
 
   {/* Main content: Whiteboard + Avatar */}
-  <div className="flex-1 h-0 relative flex flex-col md:flex-row">
+  <div className="flex-1 h-0 relative flex flex-col md:flex-row bg-[#141712]">
         {/* Loading Overlay */}
         {isLoadingWhiteboard && (
-          <div className="absolute inset-0 bg-black/50 z-40 flex items-center justify-center">
-            <div className="bg-white rounded-lg p-6 flex flex-col items-center gap-4">
-              <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-              <p className="text-gray-700 font-medium">Loading whiteboard content...</p>
+          <div className="absolute inset-0 bg-[#141712]/80 z-40 flex items-center justify-center">
+            <div className="bg-[#141712] border border-[#bf3a0d] rounded-lg p-6 flex flex-col items-center gap-4">
+              <div className="w-12 h-12 border-4 border-[#bf3a0d] border-t-transparent rounded-full animate-spin"></div>
+              <p className="text-[#ffffff] font-medium">Loading whiteboard content...</p>
             </div>
           </div>
         )}
 
         {/* Error Message */}
         {error && !isLoadingWhiteboard && (
-          <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-40 bg-red-100 border border-red-400 text-red-700 px-6 py-3 rounded-lg shadow-lg flex items-center gap-3">
+          <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-40 bg-[#bf3a0d]/10 border border-[#bf3a0d] text-[#bf3a0d] px-6 py-3 rounded-lg shadow-lg flex items-center gap-3">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
             </svg>
             <span>{error}</span>
             <button 
               onClick={() => setError(null)}
-              className="ml-2 text-red-500 hover:text-red-700"
+              className="ml-2 text-[#bf3a0d] hover:text-[#bf3a0d]/70"
             >
               ✕
             </button>
@@ -384,8 +384,8 @@ const LessonPage = () => {
         </div>
 
         {/* Avatar panel - shown on md+ screens next to the whiteboard */}
-        <div className="hidden md:flex md:w-1/3 lg:w-1/4 items-center justify-center p-4 bg-gradient-to-tr from-gray-50 to-white">
-          <div className=" w-full h-full max-w-sm max-h-[600px] rounded-lg shadow-lg bg-white/60 backdrop-blur-sm overflow-hidden">
+        <div className="hidden md:flex md:w-1/3 lg:w-1/4 items-center justify-center p-4 bg-[#141712] border-l border-[#bf3a0d]/20">
+          <div className=" w-full h-full max-w-sm max-h-[600px] rounded-lg shadow-lg bg-[#141712] border border-[#bf3a0d]/30 backdrop-blur-sm overflow-hidden">
             <Canvas camera={{ position: [0, 0.1, 3.2], fov: 40 }} className="w-full h-[420px]">
               <ambientLight intensity={0.6} />
               <directionalLight position={[5, 10, 5]} intensity={1} />

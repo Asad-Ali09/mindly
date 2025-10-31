@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLearningStore } from '@/store';
 import { aiApi } from '@/api';
+import { Tiles } from '@/components/ui/tiles';
 
 const LearnPage = () => {
   const router = useRouter();
@@ -14,6 +15,14 @@ const LearnPage = () => {
   
   // Get actions from Zustand store
   const { setTopic, setQuestions, setIsLoadingQuestions } = useLearningStore();
+
+  // Topic suggestions
+  const suggestions = [
+    { topic: 'Python Programming', icon: '🐍', category: 'Programming', visits: 'You visit often' },
+    { topic: 'Calculus', icon: '📐', category: 'Mathematics', visits: 'You visited 3 days ago' },
+    { topic: 'World History', icon: '🌍', category: 'History', visits: 'You visited 1 week ago' },
+    { topic: 'Chemistry', icon: '🧪', category: 'Science', visits: 'You visited 2 weeks ago' }
+  ];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,16 +57,26 @@ const LearnPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 p-4">
-      <div className="w-full max-w-2xl">
+    <div className="relative min-h-screen flex items-center justify-center bg-[#141712] p-4 overflow-hidden">
+      {/* Animated Tiles Background */}
+      <div className="fixed inset-0 z-0 opacity-60">
+        <Tiles 
+          rows={50} 
+          cols={20}
+          tileSize="md"
+          tileClassName="border-[#bf3a0d]/50"
+        />
+      </div>
+      
+      <div className="relative z-10 w-full max-w-4xl pointer-events-auto">
         {/* Main Card */}
-        <div className="bg-white rounded-2xl shadow-xl p-8 sm:p-12 border border-gray-100">
+        <div className="bg-[#141712] p-8 sm:p-12 rounded-lg">
           {/* Header */}
           <div className="text-center mb-8">
-            <h1 className="text-4xl sm:text-5xl font-bold text-gray-800 mb-3">
+            <h1 className="text-4xl sm:text-5xl font-bold text-[#ffffff] mb-3">
               What do you want to learn?
             </h1>
-            <p className="text-gray-600 text-lg">
+            <p className="text-[#ffffff]/70 text-lg">
               Enter any topic and we'll create a personalized learning experience for you
             </p>
           </div>
@@ -70,7 +89,7 @@ const LearnPage = () => {
                 value={localTopic}
                 onChange={(e) => setLocalTopic(e.target.value)}
                 placeholder="e.g., Machine Learning, Quantum Physics, Spanish Language..."
-                className="w-full px-6 py-4 text-lg border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all duration-200 placeholder:text-gray-400"
+                className="w-full px-6 py-4 text-lg border-2 border-[#bf3a0d]/30 bg-[#141712] text-[#ffffff] rounded-xl focus:border-[#bf3a0d] focus:ring-2 focus:ring-[#bf3a0d]/50 outline-none transition-all duration-200 placeholder:text-[#ffffff]/40"
                 autoFocus
                 disabled={isLoading}
               />
@@ -78,15 +97,15 @@ const LearnPage = () => {
 
             {/* Error Message */}
             {error && (
-              <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
-                <p className="text-red-600 text-sm">{error}</p>
+              <div className="p-4 bg-[#bf3a0d]/10 border border-[#bf3a0d] rounded-xl">
+                <p className="text-[#bf3a0d] text-sm">{error}</p>
               </div>
             )}
 
             <button
               type="submit"
               disabled={!localTopic.trim() || isLoading}
-              className="w-full cursor-pointer py-4 px-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl hover:from-blue-700 hover:to-purple-700 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed disabled:shadow-none transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]"
+              className="w-full cursor-pointer py-4 px-6 bg-[#bf3a0d] text-[#ffffff] text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl hover:bg-[#bf3a0d]/90 disabled:bg-[#ffffff]/20 disabled:cursor-not-allowed disabled:shadow-none transition-all duration-200 active:scale-[0.98]"
             >
               {isLoading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -102,28 +121,43 @@ const LearnPage = () => {
             </button>
           </form>
 
-          {/* Suggestions */}
+          {/* Suggestions - Continue with these topics */}
           <div className="mt-8">
-            <p className="text-sm text-gray-500 mb-3 text-center">Popular topics:</p>
-            <div className="flex flex-wrap gap-2 justify-center">
-              {['Python Programming', 'Calculus', 'World History', 'Chemistry'].map((suggestion) => (
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm text-[#ffffff] font-medium">Continue with these topics</p>
+              <button className="text-[#ffffff]/40 hover:text-[#ffffff]/60">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 16 16">
+                  <circle cx="3" cy="8" r="1.5"/>
+                  <circle cx="8" cy="8" r="1.5"/>
+                  <circle cx="13" cy="8" r="1.5"/>
+                </svg>
+              </button>
+            </div>
+            <div className="space-y-2">
+              {suggestions.map((item) => (
                 <button
-                  key={suggestion}
-                  onClick={() => setLocalTopic(suggestion)}
+                  key={item.topic}
+                  onClick={() => setLocalTopic(item.topic)}
                   disabled={isLoading}
-                  className="px-4 py-2 cursor-pointer text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full flex items-center gap-4 p-3 rounded-lg hover:bg-[#bf3a0d]/10 border border-transparent hover:border-[#bf3a0d]/30 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-left group cursor-pointer"
                 >
-                  {suggestion}
+                  <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center bg-[#ffffff]/5 rounded-lg text-xl group-hover:bg-[#bf3a0d]/20 transition-all duration-200">
+                    {item.icon}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-sm font-medium text-[#ffffff] truncate">{item.topic}</h3>
+                    <p className="text-xs text-[#ffffff]/50">
+                      {item.category} • {item.visits}
+                    </p>
+                  </div>
                 </button>
               ))}
             </div>
+            <button className="w-full text-center text-sm text-[#bf3a0d] hover:text-[#bf3a0d]/80 font-medium mt-3 py-2">
+              See more
+            </button>
           </div>
         </div>
-
-        {/* Footer Note */}
-        <p className="text-center text-gray-500 text-sm mt-6">
-          Powered by AI • Personalized learning paths • Interactive lessons
-        </p>
       </div>
     </div>
   );

@@ -1,13 +1,11 @@
-import React from 'react'
-import Whiteboard from '@/components/Whiteboard'
+import MinimalHero from '@/components/ui/hero-minimalism'
+import QuoteSection from '@/components/ui/quote-section'
 
-const HomePage = () => {
+export default function HomePage() {
   return (
-    <div className="h-screen">
-      {/* <Whiteboard /> */}
-      <h1 className="text-2xl font-bold">Welcome to the Home Page</h1>
+    <div className="min-h-screen bg-[#0A0B09]">
+      <MinimalHero />
+      <QuoteSection />
     </div>
   )
-}
-
-export default HomePage 
+} 
