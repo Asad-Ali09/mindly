@@ -253,6 +253,8 @@ const Whiteboard: React.FC<WhiteboardProps> = ({
 
       // Check if lesson is complete
       if (elapsed >= lesson.totalDuration) {
+        // Reset to default animation when lesson ends
+        setActiveAvatarAnimation('Breathing Idle');
         onStop();
         return;
       }
@@ -886,9 +888,9 @@ const Whiteboard: React.FC<WhiteboardProps> = ({
 
       {/* Caption Display - Absolutely positioned at bottom, centered */}
       {currentCaption && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex justify-center">
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex justify-center w-[75%]">
           <div className="bg-[#141712]/90 border border-[#bf3a0d]/50 text-[#ffffff] px-4 sm:px-6 py-2 sm:py-3 rounded-lg shadow-lg backdrop-blur-sm">
-            <p className="text-base sm:text-lg font-medium whitespace-nowrap">{currentCaption}</p>
+            <p className="text-base sm:text-lg font-medium w-full text-center break-words">{currentCaption}</p>
           </div>
         </div>
       )}

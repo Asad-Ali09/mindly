@@ -351,6 +351,9 @@ const LessonPage = () => {
     setSpokenText('');
     setAnswerPlayback({ isPlaying: false, currentTime: 0 });
     
+    // Reset to default animation when closing answer
+    setActiveAvatarAnimation('Breathing Idle');
+    
     // Stop audio playback
     if (answerAudioRef.current) {
       answerAudioRef.current.pause();
@@ -479,6 +482,8 @@ const LessonPage = () => {
       // Stop when reaching total duration
       if (elapsed >= questionAnswer.totalDuration) {
         setAnswerPlayback({ isPlaying: false, currentTime: questionAnswer.totalDuration });
+        // Reset to default animation when answer ends
+        setActiveAvatarAnimation('Breathing Idle');
         answerStartTimeRef.current = null;
         answerPauseTimeRef.current = questionAnswer.totalDuration;
         return;
@@ -502,6 +507,9 @@ const LessonPage = () => {
     if (!answerPlayback.isPlaying && answerStartTimeRef.current !== null) {
       // Store pause time when pausing
       answerPauseTimeRef.current = answerPlayback.currentTime;
+      
+      // Reset to default animation when answer is paused
+      setActiveAvatarAnimation('Breathing Idle');
       
       if (answerAnimationRef.current !== null) {
         cancelAnimationFrame(answerAnimationRef.current);
@@ -577,6 +585,8 @@ const LessonPage = () => {
     // Reset playback state when page changes
     setIsPlaying(false);
     setCurrentTime(0);
+    // Reset to default animation when page changes
+    setActiveAvatarAnimation('Breathing Idle');
   }, [currentSectionIndex, currentPageIndex, whiteboardContentCache]);
 
   const handleStart = () => {
@@ -587,15 +597,21 @@ const LessonPage = () => {
 
   const handlePause = () => {
     setIsPlaying(false);
+    // Reset to default animation when paused
+    setActiveAvatarAnimation('Breathing Idle');
   };
 
   const handleStop = () => {
     setIsPlaying(false);
+    // Reset to default animation when stopped
+    setActiveAvatarAnimation('Breathing Idle');
   };
 
   const handleReset = () => {
     setIsPlaying(false);
     setCurrentTime(0);
+    // Reset to default animation when reset
+    setActiveAvatarAnimation('Breathing Idle');
     // Trigger a re-render of whiteboard to reset timing refs
     setClearKey(prev => prev + 1);
     // Trigger audio reset in Whiteboard

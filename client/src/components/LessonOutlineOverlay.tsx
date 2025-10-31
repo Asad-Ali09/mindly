@@ -128,8 +128,8 @@ const LessonOutlineOverlay = () => {
 
                 {/* Section Content */}
                 <div
-                  className={`transition-all duration-200 overflow-hidden ${
-                    expandedSections.has(section.id) ? 'max-h-[500px]' : 'max-h-0'
+                  className={`transition-all duration-200 ${
+                    expandedSections.has(section.id) ? 'max-h-[500px]' : 'max-h-0 overflow-hidden'
                   }`}
                 >
                   <div className="px-3 py-2 bg-[#141712]">
@@ -137,7 +137,7 @@ const LessonOutlineOverlay = () => {
                     
                     {/* Pages */}
                     {section.pages && section.pages.length > 0 && (
-                      <div className="space-y-2 mt-2">
+                      <div className="space-y-2 mt-2 max-h-[380px] overflow-y-auto scrollbar-hide">
                         {section.pages.map((page, pageIndex) => (
                           <div
                             key={page.id}

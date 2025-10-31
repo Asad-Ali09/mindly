@@ -737,7 +737,7 @@ The goal is a visually-rich, well-paced lesson where students learn primarily by
         pageId: '', // Will be set by controller
         pageTitle,
         topic,
-        totalDuration: content.totalDuration || durationSeconds,
+        totalDuration: (content.totalDuration || durationSeconds) + 5,
         drawings: content.drawings || [],
         captions: content.captions || [],
         animations: parsedAnimations,
