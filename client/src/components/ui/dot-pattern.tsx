@@ -39,6 +39,13 @@ const DotPattern = memo(function DotPattern({
       {...props}
     >
       <defs>
+        <filter id={`glow-${id}`} x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="1" result="coloredBlur" />
+          <feMerge>
+            <feMergeNode in="coloredBlur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
         <pattern
           id={id}
           width={width}
@@ -48,7 +55,7 @@ const DotPattern = memo(function DotPattern({
           x={x}
           y={y}
         >
-          <circle cx={cx} cy={cy} r={cr} />
+          <circle cx={cx} cy={cy} r={cr} filter={`url(#glow-${id})`} />
         </pattern>
       </defs>
       <rect width="100%" height="100%" strokeWidth={0} fill={`url(#${id})`} />

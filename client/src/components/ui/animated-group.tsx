@@ -1,5 +1,5 @@
 'use client';
-import { ReactNode, memo } from 'react';
+import { ReactNode, memo, useEffect, useRef, useState } from 'react';
 import { motion, Variants } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import React from 'react';
@@ -149,10 +149,38 @@ const AnimatedGroup = memo(function AnimatedGroup({
   const containerVariants = variants?.container || selectedVariants.container;
   const itemVariants = variants?.item || selectedVariants.item;
 
+  const ref = useRef<HTMLDivElement>(null);
+  const [isInView, setIsInView] = useState(false);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsInView(true);
+        }
+      },
+      {
+        threshold: 0.1,
+        rootMargin: '0px 0px -50px 0px',
+      }
+    );
+
+    if (ref.current) {
+      observer.observe(ref.current);
+    }
+
+    return () => {
+      if (ref.current) {
+        observer.unobserve(ref.current);
+      }
+    };
+  }, []);
+
   return (
     <motion.div
+      ref={ref}
       initial='hidden'
-      animate='visible'
+      animate={isInView ? 'visible' : 'hidden'}
       variants={containerVariants}
       className={cn(className)}
     >
