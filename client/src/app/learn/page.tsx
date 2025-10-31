@@ -14,7 +14,7 @@ const LearnPage = () => {
   const [error, setError] = useState<string | null>(null);
   
   // Get actions from Zustand store
-  const { setTopic, setQuestions, setIsLoadingQuestions } = useLearningStore();
+  const { setTopic, setQuestions, setIsLoadingQuestions, reset } = useLearningStore();
 
   // Topic suggestions
   const suggestions = [
@@ -32,6 +32,9 @@ const LearnPage = () => {
       setIsLoadingQuestions(true);
       
       try {
+        // Clear the learning store before starting a new topic
+        reset();
+        
         // Save topic to store
         setTopic(localTopic.trim());
         
