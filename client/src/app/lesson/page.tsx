@@ -154,10 +154,13 @@ const LessonPage = () => {
   const startTimeRef = useRef<number | null>(null);
   const pauseTimeRef = useRef<number>(0);
 
-  // Audio refs and queues
+  // Audio refs and queues - LIFTED TO PAGE LEVEL (shared between Whiteboard and Avatar)
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const playedCaptionsRef = useRef<Set<number>>(new Set());
   const audioQueueRef = useRef<Map<number, string>>(new Map());
+  
+  // Audio element state for passing to Avatar component
+  const [currentAudioElement, setCurrentAudioElement] = useState<HTMLAudioElement | null>(null);
 
   // Canvas/container sizing (moved)
   const BASE_WIDTH = 800;
@@ -352,6 +355,7 @@ const LessonPage = () => {
     if (answerAudioRef.current) {
       answerAudioRef.current.pause();
       answerAudioRef.current = null;
+      setCurrentAudioElement(null); // Clear audio element
     }
     
     // Clear audio queues
@@ -420,6 +424,7 @@ const LessonPage = () => {
               if (answerAudioRef.current) {
                 answerAudioRef.current.pause();
                 answerAudioRef.current = null;
+                setCurrentAudioElement(null);
               }
               
               // Play the audio
@@ -435,6 +440,7 @@ const LessonPage = () => {
                 const audioUrl = URL.createObjectURL(blob);
                 const audio = new Audio(audioUrl);
                 answerAudioRef.current = audio;
+                setCurrentAudioElement(audio); // Sync with Avatar for lipsync
                 
                 audio.play().catch((error) => {
                   console.error('Error playing answer audio:', error);
@@ -444,6 +450,7 @@ const LessonPage = () => {
                   URL.revokeObjectURL(audioUrl);
                   if (answerAudioRef.current === audio) {
                     answerAudioRef.current = null;
+                    setCurrentAudioElement(null); // Clear audio element
                   }
                 };
               } catch (error) {
@@ -503,6 +510,7 @@ const LessonPage = () => {
       if (answerAudioRef.current) {
         answerAudioRef.current.pause();
         answerAudioRef.current = null;
+        setCurrentAudioElement(null); // Clear audio element
       }
       // Reset time ref so it recalculates on resume
       answerStartTimeRef.current = null;
@@ -782,6 +790,7 @@ const LessonPage = () => {
             audioRef={audioRef}
             playedCaptionsRef={playedCaptionsRef}
             audioQueueRef={audioQueueRef}
+            setCurrentAudioElement={setCurrentAudioElement}
             BASE_WIDTH={BASE_WIDTH}
             BASE_HEIGHT={BASE_HEIGHT}
             canvasWidth={canvasWidth}
@@ -800,7 +809,7 @@ const LessonPage = () => {
               <ambientLight intensity={0.6} />
               <directionalLight position={[5, 10, 5]} intensity={1} />
               <Suspense fallback={null}>
-                <Avatar animations={animationClips} animation={activeAvatarAnimation} position={[0, -1, 0]} />
+                <Avatar animations={animationClips} animation={activeAvatarAnimation} audioElement={currentAudioElement} position={[0, -1, 0]} />
               </Suspense>
             </Canvas>
           </div>

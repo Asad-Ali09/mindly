@@ -34,6 +34,7 @@ interface WhiteboardProps {
   audioRef: React.MutableRefObject<HTMLAudioElement | null>;
   playedCaptionsRef: React.MutableRefObject<Set<number>>;
   audioQueueRef: React.MutableRefObject<Map<number, string>>;
+  setCurrentAudioElement: (audio: HTMLAudioElement | null) => void; // For syncing with Avatar
   BASE_WIDTH: number;
   BASE_HEIGHT: number;
   canvasWidth: number;
@@ -104,6 +105,7 @@ const Whiteboard: React.FC<WhiteboardProps> = ({
   audioRef,
   playedCaptionsRef,
   audioQueueRef,
+  setCurrentAudioElement,
   BASE_WIDTH,
   BASE_HEIGHT,
   canvasWidth,
@@ -307,6 +309,7 @@ const Whiteboard: React.FC<WhiteboardProps> = ({
               if (audioRef.current) {
                 audioRef.current.pause();
                 audioRef.current = null;
+                setCurrentAudioElement(null);
               }
               
               // Play the audio
@@ -324,6 +327,7 @@ const Whiteboard: React.FC<WhiteboardProps> = ({
                 const audioUrl = URL.createObjectURL(blob);
                 const audio = new Audio(audioUrl);
                 audioRef.current = audio;
+                setCurrentAudioElement(audio); // Sync with Avatar
                 
                 audio.play().catch((error) => {
                   console.error('Error playing audio:', error);
@@ -334,6 +338,7 @@ const Whiteboard: React.FC<WhiteboardProps> = ({
                   URL.revokeObjectURL(audioUrl);
                   if (audioRef.current === audio) {
                     audioRef.current = null;
+                    setCurrentAudioElement(null); // Clear audio element
                   }
                 };
               } catch (error) {
@@ -366,6 +371,7 @@ const Whiteboard: React.FC<WhiteboardProps> = ({
                         const audioUrl = URL.createObjectURL(blob);
                         const audio = new Audio(audioUrl);
                         audioRef.current = audio;
+                        setCurrentAudioElement(audio); // Sync with Avatar
                         audio.play().catch((error) => {
                           console.error('Error playing on-demand audio:', error);
                         });
@@ -373,6 +379,7 @@ const Whiteboard: React.FC<WhiteboardProps> = ({
                           URL.revokeObjectURL(audioUrl);
                           if (audioRef.current === audio) {
                             audioRef.current = null;
+                            setCurrentAudioElement(null); // Clear audio element
                           }
                         };
                       } catch (error) {
@@ -432,6 +439,7 @@ const Whiteboard: React.FC<WhiteboardProps> = ({
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current = null;
+        setCurrentAudioElement(null); // Clear audio element
       }
       // Reset startTimeRef so it recalculates on resume
       startTimeRef.current = null;
@@ -456,6 +464,7 @@ const Whiteboard: React.FC<WhiteboardProps> = ({
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current = null;
+      setCurrentAudioElement(null); // Clear audio element
     }
     // Inform parent that audio fetching is reset/complete for this lesson change
     if (typeof onAudioFetchProgress === 'function') {
