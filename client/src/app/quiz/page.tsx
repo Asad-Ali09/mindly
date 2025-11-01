@@ -81,6 +81,8 @@ const QuizPage = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextPage = useLearningStore((state) => state.nextPage);
+  const lessonOutline = useLearningStore((state) => state.lessonOutline);
+  const currentSectionIndex = useLearningStore((state) => state.currentSectionIndex);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [userAnswers, setUserAnswers] = useState<Record<string, string>>({});
   const [showResults, setShowResults] = useState(false);
@@ -88,6 +90,7 @@ const QuizPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [quiz, setQuiz] = useState<QuizType | null>(null);
+  const [showCongratulations, setShowCongratulations] = useState(false);
   const [quizQuestions, setQuizQuestions] = useState<ApiQuizQuestion[]>(DUMMY_QUIZ.map((q, idx) => ({
     id: q.id,
     question: q.question,
@@ -100,6 +103,10 @@ const QuizPage = () => {
   const lessonOutlineId = searchParams.get('lessonOutlineId');
   const sectionId = searchParams.get('sectionId');
   const sectionIndex = searchParams.get('sectionIndex');
+  
+  // Check if this is the final quiz (last section)
+  const isFinalQuiz = lessonOutline && lessonOutline.sections && 
+    currentSectionIndex === lessonOutline.sections.length - 1;
 
   // Fetch quiz when component mounts
   useEffect(() => {
@@ -192,10 +199,15 @@ const QuizPage = () => {
 
   // Handle continue to next section after completing quiz
   const handleContinue = () => {
-    // Move to next section in the store
-    nextPage();
-    // Navigate back to lesson page
-    router.push('/lesson');
+    if (isFinalQuiz) {
+      // Show congratulations screen for final quiz
+      setShowCongratulations(true);
+    } else {
+      // Move to next section in the store
+      nextPage();
+      // Navigate back to lesson page
+      router.push('/lesson');
+    }
   };
 
   // Get option status for results view
@@ -252,6 +264,93 @@ const QuizPage = () => {
           >
             Go Back
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Congratulations screen for completing final quiz
+  if (showCongratulations) {
+    return (
+      <div className="relative min-h-screen bg-[#141712] p-4 py-8 overflow-hidden flex items-center justify-center">
+        <div className="fixed inset-0 z-0 opacity-60">
+          <Tiles 
+            rows={50} 
+            cols={20}
+            tileSize="md"
+            tileClassName="border-[#bf3a0d]/50"
+          />
+        </div>
+        <div className="relative z-10 max-w-2xl text-center">
+          <div className="bg-[#141712] border border-[#bf3a0d]/30 rounded-2xl shadow-2xl p-8 sm:p-12 backdrop-blur-sm">
+            {/* Celebration Icon */}
+            <div className="mb-6">
+              <div className="text-8xl mb-4">🎉</div>
+              <h1 className="text-4xl sm:text-5xl font-bold text-[#ffffff] mb-4">
+                Congratulations!
+              </h1>
+              <p className="text-xl text-[#ffffff]/80 mb-2">
+                You've completed the entire course!
+              </p>
+              <p className="text-lg text-[#ffffff]/60">
+                Final Quiz Score: <span className="text-[#bf3a0d] font-bold">{score}/{quizQuestions.length}</span>
+              </p>
+            </div>
+
+            {/* Course Completion Stats */}
+            <div className="bg-[#bf3a0d]/10 border border-[#bf3a0d]/30 rounded-xl p-6 mb-8">
+              <h3 className="text-lg font-semibold text-[#ffffff] mb-4">Course Completion</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-[#bf3a0d]">{lessonOutline?.sections?.length || 0}</div>
+                  <div className="text-sm text-[#ffffff]/60">Sections Completed</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-[#bf3a0d]">
+                    {Math.round((score / quizQuestions.length) * 100)}%
+                  </div>
+                  <div className="text-sm text-[#ffffff]/60">Final Score</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-[#bf3a0d]">
+                    {lessonOutline?.sections?.reduce((total: number, section: any) => total + (section.pages?.length || 0), 0) || 0}
+                  </div>
+                  <div className="text-sm text-[#ffffff]/60">Lessons Completed</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Success Message */}
+            <div className="mb-8">
+              <p className="text-[#ffffff]/70 leading-relaxed">
+                {score >= Math.ceil(quizQuestions.length * 0.7) 
+                  ? "Outstanding work! You've demonstrated excellent mastery of the material. Your dedication and understanding are truly commendable."
+                  : score >= Math.ceil(quizQuestions.length * 0.5)
+                  ? "Great job completing the course! You've shown good understanding of the key concepts. Keep building on this foundation."
+                  : "You've completed the course! While there's room for improvement, completing the journey is an achievement in itself. Consider reviewing the material to strengthen your understanding."}
+              </p>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <button
+                onClick={() => router.push('/learn')}
+                className="px-8 py-3 bg-[#bf3a0d] text-[#ffffff] font-semibold rounded-xl shadow-lg hover:shadow-xl hover:bg-[#bf3a0d]/90 transition-all duration-200"
+              >
+                Explore More Courses
+              </button>
+              <button
+                onClick={() => {
+                  setShowCongratulations(false);
+                  setShowResults(true);
+                  setCurrentQuestionIndex(0);
+                }}
+                className="px-8 py-3 bg-[#ffffff]/10 text-[#ffffff] font-semibold rounded-xl hover:bg-[#ffffff]/20 transition-all duration-200"
+              >
+                Review Quiz Results
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -475,7 +574,7 @@ const QuizPage = () => {
                     onClick={handleContinue}
                     className="px-8 py-3 bg-[#bf3a0d] text-[#ffffff] font-semibold rounded-xl shadow-lg hover:shadow-xl hover:bg-[#bf3a0d]/90 transition-all duration-200"
                   >
-                    Continue to Next Section
+                    {isFinalQuiz ? 'Complete Course' : 'Continue to Next Section'}
                   </button>
                 )}
               </>

@@ -124,6 +124,12 @@ const LessonPage = () => {
 
   // Calculate if we can navigate
   const canGoPrevious = currentSectionIndex > 0 || currentPageIndex > 0;
+  
+  // Check if we're on the last page of the last section
+  const isLastPageOfLastSection = lessonOutline && lessonOutline.sections && 
+    currentSectionIndex === lessonOutline.sections.length - 1 &&
+    currentPageIndex === lessonOutline.sections[currentSectionIndex]?.pages.length - 1;
+  
   const canGoNext = lessonOutline && lessonOutline.sections && (
     currentSectionIndex < lessonOutline.sections.length - 1 ||
     (currentSectionIndex === lessonOutline.sections.length - 1 &&
@@ -741,10 +747,10 @@ const LessonPage = () => {
           </button>
           <button
             onClick={handleNextPage}
-            disabled={!canGoNext}
+            disabled={!canGoNext && !isLastPageOfLastSection}
             className="px-4 py-2 bg-[#bf3a0d] hover:bg-[#bf3a0d]/90 disabled:bg-[#ffffff]/20 disabled:cursor-not-allowed rounded-lg transition-colors flex items-center gap-2"
           >
-            Next
+            {isLastPageOfLastSection ? 'Take Final Quiz' : 'Next'}
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
             </svg>
