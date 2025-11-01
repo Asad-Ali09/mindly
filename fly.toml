@@ -1,0 +1,28 @@
+# fly.toml app configuration file generated for surge-ai-hackathon on 2025-11-01T10:58:58+05:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'surge-ai-hackathon'
+primary_region = 'sjc'
+
+[build]
+
+[env]
+  NODE_ENV = 'production'
+  PORT = '5000'
+  PYTHONUNBUFFERED = '1'
+  TTS_SERVICE_URL = 'http://localhost:8001'
+
+[http_service]
+  internal_port = 5000
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ['app']
+
+[[vm]]
+  memory = '2gb'
+  cpu_kind = 'shared'
+  cpus = 2
