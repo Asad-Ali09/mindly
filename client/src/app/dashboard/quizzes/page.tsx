@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { 
   PlusIcon, 
@@ -11,9 +12,11 @@ import {
   XCircleIcon,
   TrendingUpIcon,
   PlayIcon,
-  AwardIcon
+  AwardIcon,
+  Loader2Icon
 } from 'lucide-react'
 import { CornerPlusIcons } from '@/components/ui/corner-plus-icons'
+import { quizApi, Quiz as APIQuiz } from '@/api/quiz.api'
 
 interface Quiz {
   id: string
@@ -25,56 +28,64 @@ interface Quiz {
   status: 'completed' | 'in-progress' | 'not-started'
   completedAt?: Date
   difficulty: 'Easy' | 'Medium' | 'Hard'
+  lessonOutlineId: string
+  sectionId: string
+  apiQuiz: APIQuiz
 }
 
-// Sample data
-const SAMPLE_QUIZZES: Quiz[] = [
-  {
-    id: '1',
-    title: 'English Grammar Basics',
-    topic: 'Grammar',
-    questions: 15,
-    duration: '20 min',
-    score: 87,
-    status: 'completed',
-    completedAt: new Date('2024-10-28'),
-    difficulty: 'Easy',
-  },
-  {
-    id: '2',
-    title: 'Business Vocabulary Test',
-    topic: 'Vocabulary',
-    questions: 20,
-    duration: '25 min',
-    score: 92,
-    status: 'completed',
-    completedAt: new Date('2024-10-27'),
-    difficulty: 'Medium',
-  },
-  {
-    id: '3',
-    title: 'Advanced Pronunciation',
-    topic: 'Pronunciation',
-    questions: 12,
-    duration: '15 min',
-    status: 'in-progress',
-    difficulty: 'Hard',
-  },
-  {
-    id: '4',
-    title: 'Present Perfect Tense',
-    topic: 'Grammar',
-    questions: 10,
-    duration: '15 min',
-    status: 'not-started',
-    difficulty: 'Medium',
-  },
-]
+// Helper function to convert API quiz to display format
+const convertAPIQuizToQuiz = (apiQuiz: APIQuiz): Quiz => {
+  return {
+    id: apiQuiz._id,
+    title: apiQuiz.sectionTitle || 'Quiz',
+    topic: apiQuiz.topic || 'General',
+    questions: apiQuiz.questions.length,
+    duration: `${Math.ceil(apiQuiz.questions.length * 1.5)} min`, // Estimate 1.5 min per question
+    status: 'not-started', // Default status
+    difficulty: 'Medium', // Default difficulty
+    lessonOutlineId: apiQuiz.lessonOutlineId,
+    sectionId: apiQuiz.sectionId,
+    apiQuiz: apiQuiz
+  }
+}
 
 export default function QuizzesPage() {
-  const [quizzes] = useState<Quiz[]>(SAMPLE_QUIZZES)
+  const router = useRouter()
+  
+  const [quizzes, setQuizzes] = useState<Quiz[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [filter, setFilter] = useState<'all' | 'completed' | 'in-progress' | 'not-started'>('all')
+
+  // Fetch quizzes on component mount
+  useEffect(() => {
+    const fetchQuizzes = async () => {
+      try {
+        setIsLoading(true)
+        setError(null)
+        const apiQuizzes = await quizApi.getAllUserQuizzes()
+        
+        if (apiQuizzes) {
+          const convertedQuizzes = apiQuizzes.map(convertAPIQuizToQuiz)
+          setQuizzes(convertedQuizzes)
+        }
+      } catch (err) {
+        console.error('Error fetching quizzes:', err)
+        setError('Failed to load quizzes. Please try again later.')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchQuizzes()
+  }, [])
+
+  const handleTakeQuiz = (quiz: Quiz) => {
+    // Navigate to quiz page - you can implement this route later
+    // For now, we'll navigate to the questions page with the quiz ID
+    router.push(`/quiz`)
+  }
 
   const filteredQuizzes = quizzes.filter(quiz => {
     const matchesSearch = quiz.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -119,39 +130,66 @@ export default function QuizzesPage() {
             <h1 className="text-3xl font-bold text-gray-100 mb-2">Quizzes</h1>
             <p className="text-gray-400">Test your knowledge and track your progress</p>
           </div>
-          <button className="px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all flex items-center gap-2 cursor-pointer">
-            <PlusIcon className="w-4 h-4" />
-            Create Quiz
-          </button>
         </div>
 
-        {/* Stats Row */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="glass-card group p-4">
+        {/* Loading State */}
+        {isLoading && (
+          <div className="glass-card group p-12 text-center">
             <CornerPlusIcons />
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-orange-500/10 rounded-lg">
-                <NotebookIcon className="w-6 h-6 text-orange-400" />
-              </div>
-              <div>
-                <p className="text-gray-400 text-sm">Total Quizzes</p>
-                <p className="text-2xl font-bold text-gray-100">{quizzes.length}</p>
-              </div>
-            </div>
+            <Loader2Icon className="w-12 h-12 text-orange-400 mx-auto mb-4 animate-spin" />
+            <h3 className="text-xl font-semibold text-gray-300 mb-2">Loading quizzes...</h3>
+            <p className="text-gray-500">Please wait while we fetch your quizzes</p>
           </div>
+        )}
 
-          <div className="glass-card group p-4">
+        {/* Error State */}
+        {error && !isLoading && (
+          <div className="glass-card group p-12 text-center border-red-500/20">
             <CornerPlusIcons />
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-green-500/10 rounded-lg">
-                <CheckCircleIcon className="w-6 h-6 text-green-400" />
-              </div>
-              <div>
-                <p className="text-gray-400 text-sm">Completed</p>
-                <p className="text-2xl font-bold text-gray-100">{completedQuizzes.length}</p>
-              </div>
+            <div className="w-12 h-12 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-2xl">⚠️</span>
             </div>
+            <h3 className="text-xl font-semibold text-gray-300 mb-2">Error loading quizzes</h3>
+            <p className="text-gray-500 mb-4">{error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-orange-500/20 border border-orange-500/50 text-orange-400 rounded-lg hover:bg-orange-500/30 transition-all"
+            >
+              Retry
+            </button>
           </div>
+        )}
+
+        {/* Content - Only show when not loading and no error */}
+        {!isLoading && !error && (
+          <>
+            {/* Stats Row */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="glass-card group p-4">
+                <CornerPlusIcons />
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-orange-500/10 rounded-lg">
+                    <NotebookIcon className="w-6 h-6 text-orange-400" />
+                  </div>
+                  <div>
+                    <p className="text-gray-400 text-sm">Total Quizzes</p>
+                    <p className="text-2xl font-bold text-gray-100">{quizzes.length}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="glass-card group p-4">
+                <CornerPlusIcons />
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-green-500/10 rounded-lg">
+                    <CheckCircleIcon className="w-6 h-6 text-green-400" />
+                  </div>
+                  <div>
+                    <p className="text-gray-400 text-sm">Completed</p>
+                    <p className="text-2xl font-bold text-gray-100">{completedQuizzes.length}</p>
+                  </div>
+                </div>
+              </div>
 
           <div className="glass-card group p-4">
             <CornerPlusIcons />
@@ -261,9 +299,12 @@ export default function QuizzesPage() {
                 </div>
               )}
 
-              <button className="w-full px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all flex items-center justify-center gap-2 cursor-pointer">
+              <button 
+                onClick={() => handleTakeQuiz(quiz)}
+                className="w-full px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
                 <PlayIcon className="w-4 h-4" />
-                {quiz.status === 'completed' ? 'Retake Quiz' : quiz.status === 'in-progress' ? 'Continue' : 'Start Quiz'}
+                Take Quiz
               </button>
             </div>
           ))}
@@ -277,9 +318,11 @@ export default function QuizzesPage() {
             <p className="text-gray-500">
               {searchQuery || filter !== 'all'
                 ? 'Try adjusting your filters or search query' 
-                : 'Start by creating your first quiz'}
+                : 'Complete lessons to generate quizzes'}
             </p>
           </div>
+        )}
+          </>
         )}
       </div>
     </div>

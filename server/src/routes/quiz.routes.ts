@@ -12,6 +12,9 @@ router.post('/generate', authMiddleware, quizController.generateQuiz.bind(quizCo
 // POST /api/quiz/:quizId/submit - Submit quiz answers and get results
 router.post('/:quizId/submit', authMiddleware, quizController.submitQuiz.bind(quizController));
 
+// GET /api/quiz/user/all - Get all quizzes for the logged-in user
+router.get('/user/all', authMiddleware, quizController.getAllUserQuizzes.bind(quizController));
+
 // GET /api/quiz/:quizId - Get quiz by ID
 router.get('/:quizId', authMiddleware, quizController.getQuizById.bind(quizController));
 

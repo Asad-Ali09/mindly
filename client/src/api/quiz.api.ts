@@ -13,7 +13,9 @@ export interface Quiz {
   lessonOutlineId: string;
   userId: string;
   sectionId: string;
+  sectionTitle: string;
   sectionIndex: number;
+  topic: string;
   questions: QuizQuestion[];
   createdAt: string;
   updatedAt: string;
@@ -48,6 +50,12 @@ export const quizApi = {
       lessonOutlineId,
       sectionId,
     });
+    return response.data.data;
+  },
+
+  // Get all quizzes for the logged-in user
+  getAllUserQuizzes: async (): Promise<Quiz[]> => {
+    const response = await apiClient.get("/quiz/user/all");
     return response.data.data;
   },
 
