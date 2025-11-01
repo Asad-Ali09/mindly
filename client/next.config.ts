@@ -11,6 +11,12 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Skip static optimization for /lesson page to prevent SSR issues with 3D assets
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '2mb',
+    },
+  },
 };
 
 export default nextConfig;

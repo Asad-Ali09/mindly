@@ -1,0 +1,1024 @@
+'use client';
+
+import { useState, useEffect, useMemo, Suspense, useRef } from "react";
+import { useRouter } from "next/navigation";
+import Whiteboard from "@/components/Whiteboard";
+import LessonOutlineOverlay from "@/components/LessonOutlineOverlay";
+import { Avatar } from "@/components/Avatar";
+import { LessonResponse } from "@/types/lesson";
+import { useLearningStore } from "@/store/learningStore";
+import { aiApi } from "@/api";
+import { useFBX } from "@react-three/drei";
+import * as THREE from "three";
+import { Canvas } from "@react-three/fiber";
+import socketService from "@/lib/socketService";
+
+function useAnimations() {
+  const breathingIdle = useFBX("/animations/Breathing Idle.fbx");
+  const handsForward = useFBX("/animations/Hands Forward Gesture.fbx");
+  const headNodYes = useFBX("/animations/Head Nod Yes.fbx");
+  const pointing = useFBX("/animations/Pointing.fbx");
+  const sarcasticNod = useFBX("/animations/Sarcastic Head Nod.fbx");
+  const standingArguing = useFBX("/animations/Standing Arguing.fbx");
+  const talking = useFBX("/animations/Talking.fbx");
+  const talking1 = useFBX("/animations/Talking (1).fbx");
+  const talking2 = useFBX("/animations/Talking (2).fbx");
+  const waving = useFBX("/animations/Waving.fbx");
+  const waving1 = useFBX("/animations/Waving (1).fbx");
+  const yelling = useFBX("/animations/Yelling.fbx");
+
+  return useMemo(() => {
+    const clips: THREE.AnimationClip[] = [];
+
+    const animationData = [
+      { fbx: breathingIdle, name: "Breathing Idle" },
+      { fbx: handsForward, name: "Hands Forward Gesture" },
+      { fbx: headNodYes, name: "Head Nod Yes" },
+      { fbx: pointing, name: "Pointing" },
+      { fbx: sarcasticNod, name: "Sarcastic Head Nod" },
+      { fbx: standingArguing, name: "Standing Arguing" },
+      { fbx: talking, name: "Talking" },
+      { fbx: talking1, name: "Talking (1)" },
+      { fbx: talking2, name: "Talking (2)" },
+      { fbx: waving, name: "Waving" },
+      { fbx: waving1, name: "Waving (1)" },
+      { fbx: yelling, name: "Yelling" }
+    ];
+
+    animationData.forEach(({ fbx, name }) => {
+      if (fbx && fbx.animations && fbx.animations.length > 0) {
+        const clip = fbx.animations[0];
+        clip.name = name;
+        clips.push(clip);
+      }
+    });
+
+    return clips;
+  }, [
+    breathingIdle, handsForward, headNodYes, pointing,
+    sarcasticNod, standingArguing, talking, talking1,
+    talking2, waving, waving1, yelling
+  ]);
+}
+
+
+const LessonPage = () => {
+  const router = useRouter();
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [lesson, setLesson] = useState<LessonResponse | null>(null);
+  const [clearKey, setClearKey] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [resetAudioKey, setResetAudioKey] = useState(0); // Key to trigger audio reset in Whiteboard
+  const [audioFetchLoading, setAudioFetchLoading] = useState(false);
+  const [audioFetched, setAudioFetched] = useState(0);
+  const [audioTotal, setAudioTotal] = useState(0);
+  
+  // Speech recognition states
+  const [isListening, setIsListening] = useState(false);
+  const [showTextBox, setShowTextBox] = useState(false);
+  const [spokenText, setSpokenText] = useState('');
+  const [isSubmittingQuestion, setIsSubmittingQuestion] = useState(false);
+  const [questionAnswer, setQuestionAnswer] = useState<{
+    question: string;
+    totalDuration: number;
+    captions: Array<{
+      timestamp: number;
+      text: string;
+      duration: number;
+      position?: 'bottom' | 'top' | 'middle';
+    }>;
+    animations: Array<{
+      id: string;
+      name?: string;
+      start: number;
+      duration: number;
+      loop?: boolean;
+    }>;
+  } | null>(null);
+  const [answerPlayback, setAnswerPlayback] = useState({
+    isPlaying: false,
+    currentTime: 0,
+  });
+  const answerAnimationRef = useRef<number | null>(null);
+  const answerStartTimeRef = useRef<number | null>(null);
+  const answerPauseTimeRef = useRef<number>(0);
+  const recognitionRef = useRef<any>(null);
+  
+  // Audio refs for answer playback (similar to Whiteboard)
+  const answerAudioRef = useRef<HTMLAudioElement | null>(null);
+  const playedAnswerCaptionsRef = useRef<Set<number>>(new Set());
+  const answerAudioQueueRef = useRef<Map<number, string>>(new Map());
+
+  // Get lesson outline and page navigation from store
+  const topic = useLearningStore((state) => state.topic);
+  const lessonOutline = useLearningStore((state) => state.lessonOutline);
+  const currentSectionIndex = useLearningStore((state) => state.currentSectionIndex);
+  const currentPageIndex = useLearningStore((state) => state.currentPageIndex);
+  const nextPage = useLearningStore((state) => state.nextPage);
+  const previousPage = useLearningStore((state) => state.previousPage);
+  const whiteboardContentCache = useLearningStore((state) => state.whiteboardContentCache);
+  const setWhiteboardContent = useLearningStore((state) => state.setWhiteboardContent);
+  const isLoadingWhiteboard = useLearningStore((state) => state.isLoadingWhiteboard);
+  const setIsLoadingWhiteboard = useLearningStore((state) => state.setIsLoadingWhiteboard);
+
+  // Calculate if we can navigate
+  const canGoPrevious = currentSectionIndex > 0 || currentPageIndex > 0;
+  
+  // Check if we're on the last page of the last section
+  const isLastPageOfLastSection = lessonOutline && lessonOutline.sections && 
+    currentSectionIndex === lessonOutline.sections.length - 1 &&
+    currentPageIndex === lessonOutline.sections[currentSectionIndex]?.pages.length - 1;
+  
+  const canGoNext = lessonOutline && lessonOutline.sections && (
+    currentSectionIndex < lessonOutline.sections.length - 1 ||
+    (currentSectionIndex === lessonOutline.sections.length - 1 &&
+     currentPageIndex < lessonOutline.sections[currentSectionIndex].pages.length - 1)
+  );
+
+  // Get current page info
+  const getCurrentPageInfo = () => {
+    if (!lessonOutline || !lessonOutline.sections) return null;
+    const section = lessonOutline.sections[currentSectionIndex];
+    if (!section || !section.pages) return null;
+    const page = section.pages[currentPageIndex];
+    return page ? { section, page } : null;
+  };
+
+  const pageInfo = getCurrentPageInfo();
+
+  // Load animation clips for Avatar
+  const animationClips = useAnimations();
+
+  // -- Moved states/refs from Whiteboard (so Whiteboard becomes mostly presentation) --
+  // Drawing elements and caption state
+  const [elements, setElements] = useState<any[]>([]);
+  const [currentCaption, setCurrentCaption] = useState<string>('');
+
+  const [activeAvatarAnimation, setActiveAvatarAnimation] = useState<string>('Breathing Idle');
+
+  // Animation and timing refs
+  const animationRef = useRef<number | null>(null);
+  const startTimeRef = useRef<number | null>(null);
+  const pauseTimeRef = useRef<number>(0);
+
+  // Audio refs and queues - LIFTED TO PAGE LEVEL (shared between Whiteboard and Avatar)
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const playedCaptionsRef = useRef<Set<number>>(new Set());
+  const audioQueueRef = useRef<Map<number, string>>(new Map());
+  
+  // Audio element state for passing to Avatar component
+  const [currentAudioElement, setCurrentAudioElement] = useState<HTMLAudioElement | null>(null);
+
+  // Canvas/container sizing (moved)
+  const BASE_WIDTH = 800;
+  const BASE_HEIGHT = 600;
+  const [canvasWidth, setCanvasWidth] = useState(BASE_WIDTH);
+  const [canvasHeight, setCanvasHeight] = useState(BASE_HEIGHT);
+  const [scale, setScale] = useState(1);
+
+  // containerRef (moved) - passed down and attached to the whiteboard outer div
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  const handleAudioFetchProgress = (fetched: number, total: number, loading: boolean) => {
+    setAudioFetched(fetched);
+    setAudioTotal(total);
+    setAudioFetchLoading(loading);
+  };
+
+  // Initialize speech recognition
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US';
+
+        recognition.onresult = (event: any) => {
+          let transcript = '';
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            transcript += event.results[i][0].transcript;
+          }
+          setSpokenText(transcript);
+        };
+
+        recognition.onerror = (event: any) => {
+          console.error('Speech recognition error:', event.error);
+          setIsListening(false);
+        };
+
+        recognition.onend = () => {
+          setIsListening(false);
+        };
+
+        recognitionRef.current = recognition;
+      }
+    }
+    
+    // Initialize socket connection
+    socketService.connect();
+
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+      // Clean up socket listeners
+      socketService.removeAllListeners('audio-response');
+      socketService.removeAllListeners('tts-error');
+    };
+  }, []);
+
+  const handleMicClick = () => {
+    if (!recognitionRef.current) {
+      alert('Speech recognition is not supported in your browser. Please use Chrome or Edge.');
+      return;
+    }
+
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      // Pause the lecture when user wants to ask a question
+      if (isPlaying) {
+        setIsPlaying(false);
+      }
+      setShowTextBox(true);
+      setSpokenText('');
+      recognitionRef.current.start();
+      setIsListening(true);
+    }
+  };
+
+  const handleSendQuestion = async () => {
+    if (!spokenText.trim()) return;
+
+    try {
+      setIsSubmittingQuestion(true);
+      setError(null);
+
+      // Get completed pages (all pages before current one)
+      const completedPages: string[] = [];
+      if (lessonOutline && lessonOutline.sections) {
+        for (let i = 0; i < lessonOutline.sections.length; i++) {
+          const section = lessonOutline.sections[i];
+          if (i < currentSectionIndex) {
+            // All pages from previous sections
+            completedPages.push(...section.pages.map((p: any) => p.id));
+          } else if (i === currentSectionIndex) {
+            // Pages before current page in current section
+            completedPages.push(...section.pages.slice(0, currentPageIndex).map((p: any) => p.id));
+          }
+        }
+      }
+
+      const currentPageId = pageInfo?.page.id || '';
+
+      const response = await aiApi.answerLessonQuestion({
+        lessonOutline,
+        completedPages,
+        currentPageId,
+        question: spokenText,
+      });
+
+      if (response.success && response.data) {
+        const answerData = {
+          question: response.data.question,
+          totalDuration: response.data.totalDuration,
+          captions: response.data.captions,
+          animations: response.data.animations,
+        };
+        setQuestionAnswer(answerData);
+        
+        // Pre-fetch audio for all answer captions (similar to Whiteboard)
+        answerAudioQueueRef.current.clear();
+        playedAnswerCaptionsRef.current.clear();
+        
+        const totalCaptions = answerData.captions.length;
+        let fetchedCount = 0;
+        
+        answerData.captions.forEach((caption, index) => {
+          setTimeout(() => {
+            socketService.requestTextToSpeech(
+              caption.text,
+              (audioData) => {
+                if (caption.text === audioData.text) {
+                  answerAudioQueueRef.current.set(index, audioData.audio);
+                  fetchedCount++;
+                  console.log(`✓ Answer audio cached for caption ${index} (${fetchedCount}/${totalCaptions})`);
+                  
+                  // Start playback when all audio is fetched
+                  if (fetchedCount === totalCaptions) {
+                    console.log('🎬 All answer audio fetched, starting playback...');
+                    setAnswerPlayback({ isPlaying: true, currentTime: 0 });
+                  }
+                }
+              },
+              (error) => {
+                console.error(`✗ Failed to get answer audio for caption ${index}:`, error.message);
+                fetchedCount++;
+                
+                // Even if some audio fails, start playback when all requests complete
+                if (fetchedCount === totalCaptions) {
+                  console.log('🎬 Audio fetching complete (some may have failed), starting playback...');
+                  setAnswerPlayback({ isPlaying: true, currentTime: 0 });
+                }
+              }
+            );
+          }, index * 100); // Stagger requests
+        });
+      } else {
+        setError('Failed to get answer. Please try again.');
+      }
+    } catch (err) {
+      console.error('Error submitting question:', err);
+      setError('Failed to get answer. Please try again.');
+    } finally {
+      setIsSubmittingQuestion(false);
+      if (isListening && recognitionRef.current) {
+        recognitionRef.current.stop();
+        setIsListening(false);
+      }
+    }
+  };
+
+  const handleCancelQuestion = () => {
+    setShowTextBox(false);
+    setSpokenText('');
+    setQuestionAnswer(null);
+    if (isListening && recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    }
+  };
+
+  const handleCloseAnswer = () => {
+    setQuestionAnswer(null);
+    setShowTextBox(false);
+    setSpokenText('');
+    setAnswerPlayback({ isPlaying: false, currentTime: 0 });
+    
+    // Reset to default animation when closing answer
+    setActiveAvatarAnimation('Breathing Idle');
+    
+    // Stop audio playback
+    if (answerAudioRef.current) {
+      answerAudioRef.current.pause();
+      answerAudioRef.current = null;
+      setCurrentAudioElement(null); // Clear audio element
+    }
+    
+    // Clear audio queues
+    answerAudioQueueRef.current.clear();
+    playedAnswerCaptionsRef.current.clear();
+    
+    // Cancel animation frame
+    if (answerAnimationRef.current !== null) {
+      cancelAnimationFrame(answerAnimationRef.current);
+      answerAnimationRef.current = null;
+    }
+    
+    // Reset time refs
+    answerStartTimeRef.current = null;
+    answerPauseTimeRef.current = 0;
+  };
+
+  // Animation loop for answer playback
+  useEffect(() => {
+    if (!answerPlayback.isPlaying || !questionAnswer) {
+      if (answerAnimationRef.current !== null) {
+        cancelAnimationFrame(answerAnimationRef.current);
+        answerAnimationRef.current = null;
+      }
+      return;
+    }
+
+    // When resuming or starting, calculate the correct start time
+    if (answerStartTimeRef.current === null) {
+      answerStartTimeRef.current = performance.now() - (answerPauseTimeRef.current * 1000);
+    }
+
+    const animate = (timestamp: number) => {
+      if (!answerStartTimeRef.current) return;
+
+      const elapsed = (timestamp - answerStartTimeRef.current) / 1000;
+      setAnswerPlayback(prev => ({ ...prev, currentTime: elapsed }));
+
+      // Update avatar animation based on current time
+      const currentAnimation = questionAnswer.animations.find(
+        anim => elapsed >= anim.start && elapsed < anim.start + anim.duration
+      );
+      if (currentAnimation) {
+        setActiveAvatarAnimation(currentAnimation.name || currentAnimation.id);
+      }
+
+      // Play audio for captions (similar to Whiteboard)
+      questionAnswer.captions.forEach((caption, index) => {
+        const captionStart = caption.timestamp;
+        const captionEnd = caption.timestamp + caption.duration;
+        
+        if (elapsed >= captionStart && elapsed < captionEnd) {
+          // Check if we just entered this caption's timeframe
+          const justEntered = elapsed >= captionStart && elapsed < captionStart + 0.1;
+          
+          if (justEntered && !playedAnswerCaptionsRef.current.has(index)) {
+            playedAnswerCaptionsRef.current.add(index);
+            
+            // Check if audio is available in queue
+            const audioBase64 = answerAudioQueueRef.current.get(index);
+            
+            if (audioBase64) {
+              console.log(`🔊 Playing answer audio for caption ${index}: "${caption.text.substring(0, 50)}..."`);
+              
+              // Stop any currently playing audio
+              if (answerAudioRef.current) {
+                answerAudioRef.current.pause();
+                answerAudioRef.current = null;
+                setCurrentAudioElement(null);
+              }
+              
+              // Play the audio
+              try {
+                const byteCharacters = atob(audioBase64);
+                const byteNumbers = new Array(byteCharacters.length);
+                for (let i = 0; i < byteCharacters.length; i++) {
+                  byteNumbers[i] = byteCharacters.charCodeAt(i);
+                }
+                const byteArray = new Uint8Array(byteNumbers);
+                const blob = new Blob([byteArray], { type: 'audio/wav' });
+
+                const audioUrl = URL.createObjectURL(blob);
+                const audio = new Audio(audioUrl);
+                answerAudioRef.current = audio;
+                setCurrentAudioElement(audio); // Sync with Avatar for lipsync
+                
+                audio.play().catch((error) => {
+                  console.error('Error playing answer audio:', error);
+                });
+
+                audio.onended = () => {
+                  URL.revokeObjectURL(audioUrl);
+                  if (answerAudioRef.current === audio) {
+                    answerAudioRef.current = null;
+                    setCurrentAudioElement(null); // Clear audio element
+                  }
+                };
+              } catch (error) {
+                console.error('Error in answer audio playback:', error);
+              }
+            } else {
+              console.warn(`⚠ Answer audio not yet available for caption ${index}, requesting now...`);
+              // Request audio on-demand if not in queue
+              socketService.requestTextToSpeech(
+                caption.text,
+                (audioData) => {
+                  if (caption.text === audioData.text) {
+                    answerAudioQueueRef.current.set(index, audioData.audio);
+                    console.log(`✓ Answer audio fetched on-demand for caption ${index}`);
+                  }
+                },
+                (error) => {
+                  console.error(`✗ Failed to get answer audio for caption ${index}:`, error.message);
+                }
+              );
+            }
+          }
+        }
+      });
+
+      // Stop when reaching total duration
+      if (elapsed >= questionAnswer.totalDuration) {
+        setAnswerPlayback({ isPlaying: false, currentTime: questionAnswer.totalDuration });
+        // Reset to default animation when answer ends
+        setActiveAvatarAnimation('Breathing Idle');
+        answerStartTimeRef.current = null;
+        answerPauseTimeRef.current = questionAnswer.totalDuration;
+        return;
+      }
+
+      answerAnimationRef.current = requestAnimationFrame(animate);
+    };
+
+    answerAnimationRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (answerAnimationRef.current !== null) {
+        cancelAnimationFrame(answerAnimationRef.current);
+        answerAnimationRef.current = null;
+      }
+    };
+  }, [answerPlayback.isPlaying, questionAnswer]);
+
+  // Handle pause/stop for answer playback
+  useEffect(() => {
+    if (!answerPlayback.isPlaying && answerStartTimeRef.current !== null) {
+      // Store pause time when pausing
+      answerPauseTimeRef.current = answerPlayback.currentTime;
+      
+      // Reset to default animation when answer is paused
+      setActiveAvatarAnimation('Breathing Idle');
+      
+      if (answerAnimationRef.current !== null) {
+        cancelAnimationFrame(answerAnimationRef.current);
+        answerAnimationRef.current = null;
+      }
+      if (answerAudioRef.current) {
+        answerAudioRef.current.pause();
+        answerAudioRef.current = null;
+        setCurrentAudioElement(null); // Clear audio element
+      }
+      // Reset time ref so it recalculates on resume
+      answerStartTimeRef.current = null;
+    }
+  }, [answerPlayback.isPlaying, answerPlayback.currentTime]);
+
+  // Get current caption for answer
+  const getCurrentAnswerCaption = () => {
+    if (!questionAnswer) return '';
+    
+    const currentTime = answerPlayback.currentTime;
+    for (const caption of questionAnswer.captions) {
+      if (currentTime >= caption.timestamp && currentTime < caption.timestamp + caption.duration) {
+        return caption.text;
+      }
+    }
+    return '';
+  };
+
+  // Fetch whiteboard content for current page
+  const fetchWhiteboardContent = async (pageId: string, pageTitle: string, pageDescription: string, estimatedDuration: string) => {
+    try {
+      setIsLoadingWhiteboard(true);
+      setError(null);
+      
+      const response = await aiApi.getWhiteboardContent({
+        pageId,
+        topic,
+        pageTitle,
+        pageDescription,
+        estimatedDuration,
+        lessonOutline, // Pass the lesson outline for context
+      });
+
+      if (response.success && response.data) {
+        setWhiteboardContent(pageId, response.data);
+        setLesson(response.data);
+      } else {
+        setError('Failed to load whiteboard content');
+      }
+    } catch (err) {
+      console.error('Error fetching whiteboard content:', err);
+      setError('Failed to load whiteboard content. Please try again.');
+    } finally {
+      setIsLoadingWhiteboard(false);
+    }
+  };
+
+  // Load whiteboard content when page changes
+  useEffect(() => {
+    if (!pageInfo) return;
+
+    const { page } = pageInfo;
+    const cachedContent = whiteboardContentCache[page.id];
+
+    if (cachedContent) {
+      // Use cached content
+      setLesson(cachedContent);
+    } else {
+      // Fetch from API
+      fetchWhiteboardContent(page.id, page.title, page.description, page.estimatedDuration);
+    }
+
+    // Reset playback state when page changes
+    setIsPlaying(false);
+    setCurrentTime(0);
+    // Reset to default animation when page changes
+    setActiveAvatarAnimation('Breathing Idle');
+  }, [currentSectionIndex, currentPageIndex, whiteboardContentCache]);
+
+  const handleStart = () => {
+    if (lesson) {
+      setIsPlaying(true);
+    }
+  };
+
+  const handlePause = () => {
+    setIsPlaying(false);
+    // Reset to default animation when paused
+    setActiveAvatarAnimation('Breathing Idle');
+  };
+
+  const handleStop = () => {
+    setIsPlaying(false);
+    // Reset to default animation when stopped
+    setActiveAvatarAnimation('Breathing Idle');
+  };
+
+  const handleReset = () => {
+    setIsPlaying(false);
+    setCurrentTime(0);
+    // Reset to default animation when reset
+    setActiveAvatarAnimation('Breathing Idle');
+    // Trigger a re-render of whiteboard to reset timing refs
+    setClearKey(prev => prev + 1);
+    // Trigger audio reset in Whiteboard
+    setResetAudioKey(prev => prev + 1);
+  };
+
+  const handleClear = () => {
+    setClearKey(prev => prev + 1);
+  };
+
+  const handleTimeUpdate = (time: number) => {
+    setCurrentTime(time);
+  };
+
+  const handleNextPage = () => {
+    if (!lessonOutline || !lessonOutline.sections) return;
+    
+    const currentSection = lessonOutline.sections[currentSectionIndex];
+    if (!currentSection) return;
+    
+    // Check if this is the last page of the current section
+    const isLastPageOfSection = currentPageIndex === currentSection.pages.length - 1;
+    
+    if (isLastPageOfSection) {
+      // Navigate to quiz page with lessonOutlineId and sectionId
+      const lessonOutlineId = lessonOutline._id || lessonOutline.id;
+      const sectionId = currentSection.id;
+      router.push(`/quiz?lessonOutlineId=${lessonOutlineId}&sectionId=${sectionId}&sectionIndex=${currentSectionIndex}`);
+      return;
+    }
+    
+    // Otherwise, just go to next page
+    nextPage();
+    setClearKey(prev => prev + 1);
+  };
+
+  const handlePreviousPage = () => {
+    previousPage();
+    setClearKey(prev => prev + 1);
+  };
+
+  return (
+    <div className="h-screen flex flex-col bg-[#141712]">
+      {/* Header - Only Page Info */}
+      <div className="bg-[#141712] border-b border-[#bf3a0d]/20 text-[#ffffff] px-6 py-3 flex items-center justify-between shadow-lg">
+        {/* Left side: Home Button and Page Info */}
+        <div className="flex items-center gap-4">
+          {/* Home Button */}
+          <button
+            onClick={() => router.push('/')}
+            className="px-4 py-2 bg-[#bf3a0d]/90 hover:bg-[#bf3a0d] rounded-lg transition-colors flex items-center gap-2"
+            title="Go to Home"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+            </svg>
+            <span className="text-sm font-medium">Home</span>
+          </button>
+          
+          {pageInfo && (
+            <div className="text-sm bg-[#ffffff]/10 px-4 py-2 rounded-lg">
+              <span className="text-[#ffffff]/60">Section {currentSectionIndex + 1}, Page {currentPageIndex + 1}:</span>
+              <span className="ml-2 font-semibold text-[#ffffff]">{pageInfo.page.title}</span>
+            </div>
+          )}
+          {lesson && (
+            <span className="text-[#ffffff] text-sm font-medium">{lesson.topic}</span>
+          )}
+        </div>
+
+        {/* Right side: Audio Status and Lesson Outline Button */}
+        <div className="flex items-center gap-3">
+          {(audioTotal > 0) && (
+            <div className="text-sm px-3 py-1 rounded-md flex items-center gap-2"
+                 style={{ background: audioFetchLoading ? 'rgba(191, 58, 13, 0.15)' : 'rgba(191, 58, 13, 0.1)', color: audioFetchLoading ? '#bf3a0d' : '#bf3a0d' }}>
+              {audioFetchLoading ? (
+                <>
+                  <div className="w-3 h-3 rounded-full animate-pulse" style={{ background: '#bf3a0d' }} />
+                  <span>Loading audio: {audioFetched}/{audioTotal}</span>
+                </>
+              ) : (
+                <span>Audio fetched: {audioFetched}/{audioTotal}</span>
+              )}
+            </div>
+          )}
+          {/* Lesson Outline Button */}
+          <LessonOutlineOverlay inHeader={true} />
+        </div>
+      </div>
+
+      {/* Progress Bar */}
+      {lesson && (
+        <div className="bg-[#141712] border-b border-[#bf3a0d]/20 px-6 py-2">
+          <div className="flex items-center gap-4">
+            <span className="text-[#ffffff] text-sm min-w-[80px]">
+              {currentTime.toFixed(1)}s / {lesson.totalDuration}s
+            </span>
+            <div className="flex-1 bg-[#ffffff]/10 rounded-full h-2">
+              <div
+                className="bg-[#bf3a0d] h-2 rounded-full transition-all duration-100"
+                style={{ width: `${(currentTime / lesson.totalDuration) * 100}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+  {/* Main content: Whiteboard + Avatar */}
+  <div className="flex-1 h-0 z-0 relative flex flex-col md:flex-row bg-[#141712]">
+        {/* Loading Overlay */}
+        {isLoadingWhiteboard && (
+          <div className="absolute inset-0 bg-[#141712]/80 z-40 flex items-center justify-center">
+            <div className="bg-[#141712] border border-[#bf3a0d] rounded-lg p-6 flex flex-col items-center gap-4">
+              <div className="w-12 h-12 border-4 border-[#bf3a0d] border-t-transparent rounded-full animate-spin"></div>
+              <p className="text-[#ffffff] font-medium">Loading whiteboard content...</p>
+            </div>
+          </div>
+        )}
+
+        {/* Error Message */}
+        {error && !isLoadingWhiteboard && (
+          <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-40 bg-[#bf3a0d]/10 border border-[#bf3a0d] text-[#bf3a0d] px-6 py-3 rounded-lg shadow-lg flex items-center gap-3">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+            </svg>
+            <span>{error}</span>
+            <button 
+              onClick={() => setError(null)}
+              className="ml-2 text-[#bf3a0d] hover:text-[#bf3a0d]/70"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        {/* Whiteboard - increased width */}
+        <div className="flex-1 min-w-0 flex flex-col">
+          <Whiteboard 
+            key={clearKey}
+            isPlaying={isPlaying}
+            onStart={handleStart}
+            onStop={handlePause}
+            onReset={handleReset}
+            onClear={handleClear}
+            currentTime={currentTime}
+            onTimeUpdate={handleTimeUpdate}
+            lesson={lesson}
+            resetAudioKey={resetAudioKey}
+            onAudioFetchProgress={handleAudioFetchProgress}
+            // moved states/refs
+            containerRef={containerRef}
+            elements={elements}
+            setElements={setElements}
+            currentCaption={currentCaption}
+            setCurrentCaption={setCurrentCaption}
+            activeAvatarAnimation={activeAvatarAnimation}
+            setActiveAvatarAnimation={setActiveAvatarAnimation}
+            animationRef={animationRef}
+            startTimeRef={startTimeRef}
+            pauseTimeRef={pauseTimeRef}
+            audioRef={audioRef}
+            playedCaptionsRef={playedCaptionsRef}
+            audioQueueRef={audioQueueRef}
+            setCurrentAudioElement={setCurrentAudioElement}
+            BASE_WIDTH={BASE_WIDTH}
+            BASE_HEIGHT={BASE_HEIGHT}
+            canvasWidth={canvasWidth}
+            canvasHeight={canvasHeight}
+            setCanvasWidth={setCanvasWidth}
+            setCanvasHeight={setCanvasHeight}
+            scale={scale}
+            setScale={setScale}
+          />
+        </div>
+
+        {/* Avatar panel - reduced width, zoomed in character */}
+        <div className="hidden absolute  h-full pointer-events-none md:flex md:w-[250px] lg:w-[420px] items-center justify-center p-4 pb-0 ">
+          <div className="w-full h-full max-w-sm rounded-lg shadow-lg  overflow-hidden">
+            <Canvas camera={{ position: [0, 0, 8], fov: 22 }}  className="w-full h-full">
+              <ambientLight intensity={0.6} />
+              <directionalLight position={[5, 10, 5]} intensity={1} />
+              <Suspense fallback={null}>
+                <Avatar animations={animationClips} animation={activeAvatarAnimation} audioElement={currentAudioElement} position={[0, -1.8, 3]}  />
+              </Suspense>
+            </Canvas>
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom Control Bar */}
+      <div className="bg-[#141712] border-t border-[#bf3a0d]/20 px-6 py-4">
+        <div className="flex items-center justify-between gap-4">
+          {/* Playback Controls */}
+          <div className="flex gap-3">
+            <button
+              onClick={isPlaying ? handlePause : handleStart}
+              disabled={!lesson || isLoadingWhiteboard}
+              className="px-5 py-2.5 bg-[#bf3a0d] hover:bg-[#bf3a0d]/90 disabled:bg-[#ffffff]/20 disabled:cursor-not-allowed rounded-lg transition-colors font-medium flex items-center gap-2"
+            > 
+              {isPlaying ? (
+                <>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  Pause
+                </>
+              ) : (
+                <>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                  </svg>
+                  Play
+                </>
+              )}
+            </button>
+            <button
+              onClick={handleReset}
+              className="px-5 py-2.5 bg-[#bf3a0d]/70 hover:bg-[#bf3a0d] rounded-lg transition-colors font-medium flex items-center gap-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+              </svg>
+              Reset
+            </button>
+            <button
+              onClick={handleClear}
+              className="px-5 py-2.5 bg-[#ffffff]/10 hover:bg-[#ffffff]/20 rounded-lg transition-colors font-medium flex items-center gap-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              Clear
+            </button>
+          </div>
+
+          {/* Center - Ask Question Button */}
+          <div className="flex-1 flex justify-center">
+            <button
+              onClick={handleMicClick}
+              className={`px-6 py-2.5 rounded-lg transition-colors flex items-center gap-2 font-medium ${
+                isListening 
+                  ? 'bg-red-600 hover:bg-red-700 animate-pulse' 
+                  : 'bg-[#bf3a0d] hover:bg-[#bf3a0d]/90'
+              }`}
+              title="Ask a question"
+            >
+              {isListening ? (
+                <>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 002 0V8a1 1 0 00-1-1zm4 0a1 1 0 00-1 1v4a1 1 0 002 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  Stop Listening
+                </>
+              ) : (
+                <>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clipRule="evenodd" />
+                  </svg>
+                  Ask a Question
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Navigation Controls */}
+          <div className="flex gap-3">
+            <button
+              onClick={handlePreviousPage}
+              disabled={!canGoPrevious}
+              className="px-5 py-2.5 bg-[#bf3a0d] hover:bg-[#bf3a0d]/90 disabled:bg-[#ffffff]/20 disabled:cursor-not-allowed rounded-lg transition-colors flex items-center gap-2 font-medium"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
+              Previous
+            </button>
+            <button
+              onClick={handleNextPage}
+              disabled={!canGoNext && !isLastPageOfLastSection}
+              className="px-5 py-2.5 bg-[#bf3a0d] hover:bg-[#bf3a0d]/90 disabled:bg-[#ffffff]/20 disabled:cursor-not-allowed rounded-lg transition-colors flex items-center gap-2 font-medium"
+            >
+              {isLastPageOfLastSection ? 'Take Final Quiz' : 'Next'}
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Speech Recognition Text Box */}
+      {showTextBox && (
+        <div className="fixed bottom-0 left-0 right-0 bg-[#141712] border-t border-[#bf3a0d]/30 p-4 shadow-2xl z-50">
+          <div className="max-w-4xl mx-auto">
+            {!questionAnswer ? (
+              // Question input view
+              <div className="flex items-end gap-3">
+                <div className="flex-1">
+                  <label className="block text-[#ffffff]/60 text-sm mb-2">
+                    {isListening ? 'Listening...' : 'Your Question'}
+                  </label>
+                  <textarea
+                    value={spokenText}
+                    onChange={(e) => setSpokenText(e.target.value)}
+                    placeholder="Speak or type your question..."
+                    className="w-full px-4 py-3 bg-[#ffffff]/10 border border-[#bf3a0d]/30 rounded-lg text-[#ffffff] placeholder-[#ffffff]/40 focus:outline-none focus:border-[#bf3a0d] focus:ring-1 focus:ring-[#bf3a0d] resize-none"
+                    rows={3}
+                    disabled={isSubmittingQuestion}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleSendQuestion}
+                    disabled={!spokenText.trim() || isSubmittingQuestion}
+                    className="px-6 py-3 bg-[#bf3a0d] hover:bg-[#bf3a0d]/90 disabled:bg-[#ffffff]/20 disabled:cursor-not-allowed rounded-lg transition-colors flex items-center gap-2 font-medium"
+                  >
+                    {isSubmittingQuestion ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-[#ffffff] border-t-transparent rounded-full animate-spin"></div>
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+                        </svg>
+                        Send
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={handleCancelQuestion}
+                    disabled={isSubmittingQuestion}
+                    className="px-6 py-3 bg-[#ffffff]/10 hover:bg-[#ffffff]/20 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors font-medium"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              // Answer display view with animated captions
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[#ffffff]/60 text-sm mb-2">Your Question:</label>
+                  <div className="px-4 py-3 bg-[#ffffff]/5 border border-[#bf3a0d]/20 rounded-lg text-[#ffffff]">
+                    {spokenText}
+                  </div>
+                </div>
+                
+                {/* Progress bar for answer playback */}
+                <div className="flex items-center gap-4">
+                  <span className="text-[#ffffff] text-sm min-w-[80px]">
+                    {answerPlayback.currentTime.toFixed(1)}s / {questionAnswer.totalDuration}s
+                  </span>
+                  <div className="flex-1 bg-[#ffffff]/10 rounded-full h-2">
+                    <div
+                      className="bg-[#bf3a0d] h-2 rounded-full transition-all duration-100"
+                      style={{ width: `${(answerPlayback.currentTime / questionAnswer.totalDuration) * 100}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Current caption display */}
+                <div className="min-h-[100px]">
+                  <label className="block text-[#ffffff]/60 text-sm mb-2">Answer:</label>
+                  <div className="px-4 py-3 bg-[#bf3a0d]/10 border border-[#bf3a0d]/30 rounded-lg text-[#ffffff] min-h-[80px] flex items-center">
+                    {getCurrentAnswerCaption() || (
+                      <span className="text-[#ffffff]/40 italic">
+                        {answerPlayback.currentTime >= questionAnswer.totalDuration 
+                          ? 'Answer completed' 
+                          : 'Preparing answer...'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2">
+                  {answerPlayback.currentTime < questionAnswer.totalDuration && (
+                    <button
+                      onClick={() => setAnswerPlayback(prev => ({ ...prev, isPlaying: !prev.isPlaying }))}
+                      className="px-6 py-3 bg-[#bf3a0d]/70 hover:bg-[#bf3a0d] rounded-lg transition-colors font-medium"
+                    >
+                      {answerPlayback.isPlaying ? '⏸ Pause' : '▶ Resume'}
+                    </button>
+                  )}
+                  <button
+                    onClick={handleCloseAnswer}
+                    className="px-6 py-3 bg-[#bf3a0d] hover:bg-[#bf3a0d]/90 rounded-lg transition-colors font-medium"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default LessonPage
