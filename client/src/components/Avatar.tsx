@@ -352,7 +352,7 @@ export function Avatar(props: any) {
   }, []);
 
   return (
-    <group {...restProps} dispose={null} ref={group} scale={1.4}>
+    <group {...restProps} dispose={null} ref={group} scale={1.3}>
       <primitive object={nodes.Hips} />
       {nodes.Wolf3D_Body && (
         <skinnedMesh

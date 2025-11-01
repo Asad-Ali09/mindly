@@ -728,7 +728,7 @@ const LessonPage = () => {
       )}
 
   {/* Main content: Whiteboard + Avatar */}
-  <div className="flex-1 h-0 relative flex flex-col md:flex-row bg-[#141712]">
+  <div className="flex-1 h-0 z-0 relative flex flex-col md:flex-row bg-[#141712]">
         {/* Loading Overlay */}
         {isLoadingWhiteboard && (
           <div className="absolute inset-0 bg-[#141712]/80 z-40 flex items-center justify-center">
@@ -796,13 +796,13 @@ const LessonPage = () => {
         </div>
 
         {/* Avatar panel - reduced width, zoomed in character */}
-        <div className="hidden md:flex md:w-[280px] lg:w-[320px] items-center justify-center p-4 bg-[#141712] border-l border-[#bf3a0d]/20">
-          <div className="w-full h-full max-w-sm rounded-lg shadow-lg bg-[#141712] border border-[#bf3a0d]/30 backdrop-blur-sm overflow-hidden">
-            <Canvas camera={{ position: [0, 1.5, 2], fov: 30 }} className="w-full h-full">
+        <div className="hidden absolute  h-full pointer-events-none md:flex md:w-[250px] lg:w-[420px] items-center justify-center p-4 pb-0 ">
+          <div className="w-full h-full max-w-sm rounded-lg shadow-lg  overflow-hidden">
+            <Canvas camera={{ position: [0, 0, 8], fov: 22 }}  className="w-full h-full">
               <ambientLight intensity={0.6} />
               <directionalLight position={[5, 10, 5]} intensity={1} />
               <Suspense fallback={null}>
-                <Avatar animations={animationClips} animation={activeAvatarAnimation} audioElement={currentAudioElement} position={[0.07, -2, 0]}  />
+                <Avatar animations={animationClips} animation={activeAvatarAnimation} audioElement={currentAudioElement} position={[0, -1.8, 3]}  />
               </Suspense>
             </Canvas>
           </div>
