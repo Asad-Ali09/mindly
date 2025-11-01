@@ -98,7 +98,7 @@ class AIController {
 
       return res.status(200).json({
         success: true,
-        data: outline,
+        data: savedOutline,
         outlineId: savedOutline._id, // Return the saved outline ID
         message: 'Lesson outline generated and saved successfully',
       });

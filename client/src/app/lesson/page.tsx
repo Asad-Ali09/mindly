@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, Suspense, useRef } from "react";
+import { useRouter } from "next/navigation";
 import Whiteboard from "@/components/Whiteboard";
 import LessonOutlineOverlay from "@/components/LessonOutlineOverlay";
 import { Avatar } from "@/components/Avatar";
@@ -62,6 +63,7 @@ function useAnimations() {
 
 
 const LessonPage = () => {
+  const router = useRouter();
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [lesson, setLesson] = useState<LessonResponse | null>(null);
@@ -627,6 +629,23 @@ const LessonPage = () => {
   };
 
   const handleNextPage = () => {
+    if (!lessonOutline || !lessonOutline.sections) return;
+    
+    const currentSection = lessonOutline.sections[currentSectionIndex];
+    if (!currentSection) return;
+    
+    // Check if this is the last page of the current section
+    const isLastPageOfSection = currentPageIndex === currentSection.pages.length - 1;
+    
+    if (isLastPageOfSection) {
+      // Navigate to quiz page with lessonOutlineId and sectionId
+      const lessonOutlineId = lessonOutline._id || lessonOutline.id;
+      const sectionId = currentSection.id;
+      router.push(`/quiz?lessonOutlineId=${lessonOutlineId}&sectionId=${sectionId}&sectionIndex=${currentSectionIndex}`);
+      return;
+    }
+    
+    // Otherwise, just go to next page
     nextPage();
     setClearKey(prev => prev + 1);
   };
