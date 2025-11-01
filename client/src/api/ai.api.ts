@@ -154,6 +154,48 @@ class AIApi {
     );
     return response.data;
   }
+
+  /**
+   * Get all lesson outlines for the logged-in user
+   * GET /api/ai/lesson-outlines
+   */
+  async getUserLessonOutlines(): Promise<{
+    success: boolean;
+    data: any[];
+    count: number;
+    message?: string;
+  }> {
+    const response = await apiClient.get('/ai/lesson-outlines');
+    return response.data;
+  }
+
+  /**
+   * Get a specific lesson outline by ID
+   * GET /api/ai/lesson-outline/:outlineId
+   */
+  async getLessonOutlineById(outlineId: string): Promise<{
+    success: boolean;
+    data: any;
+    message?: string;
+  }> {
+    const response = await apiClient.get(`/ai/lesson-outline/${outlineId}`);
+    return response.data;
+  }
+
+  /**
+   * Delete a lesson outline
+   * DELETE /api/ai/lesson-outline/:outlineId
+   */
+  async deleteLessonOutline(outlineId: string): Promise<{
+    success: boolean;
+    message?: string;
+    data?: {
+      deletedId: string;
+    };
+  }> {
+    const response = await apiClient.delete(`/ai/lesson-outline/${outlineId}`);
+    return response.data;
+  }
 }
 
 // Export singleton instance
