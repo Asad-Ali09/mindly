@@ -1,0 +1,40 @@
+# Ignore client directory - not needed in server deployment
+client/
+
+# Node modules will be installed during build
+server/node_modules/
+server/dist/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# TTS output files
+tts-service/output/*.wav
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+*.md
+!.fly/deploy.md
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker files
+docker-compose*.yml
+
+# Logs
+*.log

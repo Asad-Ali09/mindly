@@ -9,7 +9,7 @@ import { connectDatabase } from './config/database';
 
 const app = express();
 const httpServer = createServer(app);
-const PORT = config.port;
+const PORT = typeof config.port === 'string' ? parseInt(config.port, 10) : config.port;
 
 app.use(cors({
   origin: config.FRONTEND_URL,
@@ -28,6 +28,29 @@ app.get('/', (req: Request, res: Response) => {
   res.send('Hello World');
 });
 
+// Health check endpoint for Fly.io
+app.get('/health', async (req: Request, res: Response) => {
+  try {
+    // Check TTS service health
+    const ttsHealthy = await fetch(`${config.TTS_SERVICE_URL}/health`)
+      .then(r => r.ok)
+      .catch(() => false);
+    
+    res.status(200).json({
+      status: 'healthy',
+      services: {
+        api: 'ok',
+        tts: ttsHealthy ? 'ok' : 'degraded'
+      }
+    });
+  } catch (error) {
+    res.status(503).json({
+      status: 'unhealthy',
+      error: 'Service check failed'
+    });
+  }
+});
+
 // Mount API routes
 app.use('/api', routes);
 
@@ -43,9 +66,9 @@ const startServer = async () => {
     // Connect to MongoDB
     await connectDatabase();
     
-    // Start HTTP server
-    httpServer.listen(PORT, () => {
-      console.log(`🚀 Server is running on http://localhost:${PORT}`);
+    // Start HTTP server - listen on 0.0.0.0 for external access (required for Docker/Fly.io)
+    httpServer.listen(PORT, '0.0.0.0', () => {
+      console.log(`🚀 Server is running on http://0.0.0.0:${PORT}`);
       console.log(`🔌 Socket.IO is ready for connections`);
     });
   } catch (error) {
