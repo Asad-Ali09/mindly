@@ -5,6 +5,8 @@
 ![Project Banner](./docs/images/banner.png)
 *Where AI Becomes Your Personal Teacher*
 
+[![Live Demo](https://img.shields.io/badge/Live-Demo-success?style=for-the-badge&logo=vercel)](https://mindly-ai-rosy.vercel.app/)
+
 [![Next.js](https://img.shields.io/badge/Next.js-15.5.4-black?style=flat-square&logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
 [![Express](https://img.shields.io/badge/Express-5.1.0-green?style=flat-square&logo=express)](https://expressjs.com/)
@@ -72,9 +74,6 @@ Experience true conversational learning:
 - **Smart Redirection**: Gently guides you back on track when curiosity drifts too far
 - **Natural Dialogue**: Conversational AI that adapts to your learning style
 
-![Interactive Chat](./docs/images/interactive-chat.png)
-*Real-time Q&A during lesson*
-
 ### 🎨 Visual Whiteboard System
 
 Complex concepts come alive through dynamic visualizations:
@@ -95,9 +94,6 @@ A lifelike AI instructor brings engagement to learning:
 - **Facial Expressions**: Dynamic expressions (smile, surprise, thinking, etc.)
 - **Gesture Animations**: Natural body language during teaching
 - **Built with Three.js**: Smooth 3D rendering and animations
-
-![3D Avatar](./docs/images/avatar-teacher.png)
-*3D AI teacher with facial expressions and lip sync*
 
 ### 🧠 Intelligent Assessment System
 
@@ -251,8 +247,8 @@ Follow these steps to set up the project locally:
 ### Step 1: Clone the Repository
 
 ```bash
-git clone https://github.com/Asad-Ali09/surge-ai-hackathon.git
-cd surge-ai-hackathon
+git clone https://github.com/Asad-Ali09/mindly.git
+cd mindly
 ```
 
 ![Clone Repository](./docs/images/git-clone.png)
@@ -340,8 +336,6 @@ TTS_SERVICE_URL=http://localhost:8001
 3. Click "Create API Key"
 4. Copy the key and paste it in your `.env` file
 
-![Gemini API Key](./docs/images/gemini-api-key.png)
-
 #### Client Configuration
 
 Create `.env.local` file in the `client` directory:
@@ -359,8 +353,6 @@ NEXT_PUBLIC_API_URL=http://localhost:5000
 # Socket.IO Connection
 NEXT_PUBLIC_SOCKET_URL=http://localhost:5000
 ```
-
-![Environment Setup](./docs/images/env-setup.png)
 
 ---
 
@@ -411,8 +403,6 @@ This will install:
 
 **Note:** TTS installation may take 5-10 minutes as it downloads machine learning models.
 
-![Dependencies Installation](./docs/images/npm-install.png)
-
 ---
 
 ### Step 5: Build the Server
@@ -441,8 +431,6 @@ uvicorn main:app --host 0.0.0.0 --port 8001 --reload
 
 Wait for: `Application startup complete` message
 
-![TTS Service Running](./docs/images/tts-service-running.png)
-
 #### Terminal 2: Start Node.js Server
 
 ```bash
@@ -452,8 +440,6 @@ npm run dev
 
 Wait for: `Server is running on port 5000` and `MongoDB connected successfully`
 
-![Server Running](./docs/images/server-running.png)
-
 #### Terminal 3: Start Client
 
 ```bash
@@ -462,8 +448,6 @@ npm run dev
 ```
 
 Wait for: `Ready started server on 0.0.0.0:3000`
-
-![Client Running](./docs/images/client-running.png)
 
 ---
 
@@ -476,8 +460,6 @@ http://localhost:3000
 ```
 
 You should see the landing page! 🎉
-
-![Application Running](./docs/images/app-running.png)
 
 ---
 
@@ -516,7 +498,7 @@ After login, you'll land on your personal dashboard showing:
 - Quiz performance
 - Activity charts
 
-![Dashboard Overview](./docs/images/dashboard-overview.png)
+![Dashboard](./docs/images/dashboard.png)
 
 #### 2. Create a New Lesson
 
@@ -538,7 +520,7 @@ The AI generates a complete lesson structure:
 - Estimated duration for each section
 - Learning pages within sections
 
-![Lesson Outline](./docs/images/generated-outline.png)
+![Lesson Outline](./docs/images/lesson-outline.png)
 
 #### 4. Start the Lesson
 
@@ -602,8 +584,6 @@ Example: Learning about a cell:
 - "How does this relate to [another topic]?"
 - "I don't understand the diagram, can you clarify?"
 
-![Ask Question](./docs/images/ask-question.png)
-
 **Smart Context Awareness:**
 - AI remembers the current topic
 - Understands what "that" or "this" refers to
@@ -627,7 +607,7 @@ Example: Learning about a cell:
 - Score calculation
 - Correct answer explanations
 
-![Quiz Screen](./docs/images/quiz-screen.png)
+![Quiz Interface](./docs/images/quiz-interface.png)
 
 #### Reviewing Your Performance
 
@@ -646,16 +626,12 @@ After quiz completion:
 3. View auto-generated study notes:
    - Key concepts summary
    - Important points highlighted
-   - Section-by-section breakdown
-   - Downloadable for offline study
-
-![Lesson Notes](./docs/images/lesson-notes.png)
+- Section-by-section breakdown
+- Downloadable for offline study
 
 ---
 
-### Tracking Your Progress
-
-#### Dashboard Analytics
+### Tracking Your Progress#### Dashboard Analytics
 
 Your dashboard provides comprehensive insights:
 
@@ -698,7 +674,7 @@ Your dashboard provides comprehensive insights:
 ## 📁 Project Structure
 
 ```
-surge-ai-hackathon/
+mindly/
 │
 ├── client/                          # Next.js Frontend Application
 │   ├── public/                      # Static assets
@@ -1164,7 +1140,7 @@ We welcome contributions from the community! Here's how you can help:
 
 1. **Fork the repository**
 ```bash
-git clone https://github.com/your-username/surge-ai-hackathon.git
+git clone https://github.com/your-username/mindly.git
 ```
 
 2. **Create a feature branch**
@@ -1321,9 +1297,11 @@ Conditions:
 
 ## 👥 Team
 
-**Project Created By:** Surge AI Hackathon Team
+**Project Created By:** GreyThree Team
 
-**Repository:** [github.com/Asad-Ali09/surge-ai-hackathon](https://github.com/Asad-Ali09/surge-ai-hackathon)
+**Repository:** [github.com/Asad-Ali09/mindly](https://github.com/Asad-Ali09/mindly)
+
+**Live Demo:** [mindly-ai-rosy.vercel.app](https://mindly-ai-rosy.vercel.app/)
 
 ---
 
@@ -1345,9 +1323,9 @@ Special thanks to all open-source contributors whose libraries made this possibl
 
 Having issues or questions?
 
-- **GitHub Issues**: [Open an issue](https://github.com/Asad-Ali09/surge-ai-hackathon/issues)
-- **Email**: [Contact Us](mailto:support@example.com) *(replace with actual email)*
-- **Discussions**: [GitHub Discussions](https://github.com/Asad-Ali09/surge-ai-hackathon/discussions)
+- **GitHub Issues**: [Open an issue](https://github.com/Asad-Ali09/mindly/issues)
+- **Email**: [Contact Us](mailto:saadamir318@gmail.com)
+- **Discussions**: [GitHub Discussions](https://github.com/Asad-Ali09/mindly/discussions)
 
 ---
 
@@ -1364,7 +1342,7 @@ If you find this project helpful, please consider:
 
 <div align="center">
 
-**Made with ❤️ by the Surge AI Hackathon Team**
+**Made with by GreyThree Team**
 
 *Transforming education through AI, one lesson at a time*
 
