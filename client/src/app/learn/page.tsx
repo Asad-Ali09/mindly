@@ -3,9 +3,12 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useLearningStore } from '@/store';
+import { useAuthStore } from '@/store';
 import { aiApi } from '@/api';
 import { Tiles } from '@/components/ui/tiles';
+import { AnimatedGroup } from '@/components/ui/animated-group';
 
 const LearnPage = () => {
   const router = useRouter();
@@ -15,6 +18,7 @@ const LearnPage = () => {
   
   // Get actions from Zustand store
   const { setTopic, setQuestions, setIsLoadingQuestions, reset } = useLearningStore();
+  const { user } = useAuthStore();
 
   // Topic suggestions
   const suggestions = [
@@ -60,7 +64,7 @@ const LearnPage = () => {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center bg-[#141712] p-4 overflow-hidden">
+    <div className="relative min-h-screen flex flex-col bg-[#0A0B09] overflow-hidden">
       {/* Animated Tiles Background */}
       <div className="fixed inset-0 z-0 opacity-60">
         <Tiles 
@@ -70,10 +74,63 @@ const LearnPage = () => {
           tileClassName="border-[#bf3a0d]/50"
         />
       </div>
+
+      {/* Header */}
+      <header className="hero-header">
+        <AnimatedGroup
+          variants={{
+            container: {
+              visible: {
+                transition: {
+                  staggerChildren: 0.1,
+                  delayChildren: 0,
+                },
+              },
+            },
+            item: {
+              hidden: {
+                opacity: 0,
+                y: -20,
+              },
+              visible: {
+                opacity: 1,
+                y: 0,
+                transition: {
+                  type: 'spring' as const,
+                  bounce: 0.4,
+                  duration: 1,
+                },
+              },
+            },
+          }}
+          className="w-full flex justify-between items-center"
+        >
+          <div>
+            <Link href="/" className="hero-brand">
+              <span>Mindly</span>
+            </Link>
+          </div>
+          <div>
+            {user ? (
+              <Link href="/dashboard">
+                <button className="hero-cta" type="button">
+                  Dashboard
+                </button>
+              </Link>
+            ) : (
+              <Link href="/login">
+                <button className="hero-cta" type="button">
+                  Login now
+                </button>
+              </Link>
+            )}
+          </div>
+        </AnimatedGroup>
+      </header>
       
-      <div className="relative z-10 w-full max-w-4xl pointer-events-auto">
+      <div className="relative z-10 w-full max-w-4xl mx-auto flex-1 flex items-center justify-center p-4 pointer-events-auto mt-24">
         {/* Main Card */}
-        <div className="bg-[#141712] p-8 sm:p-12 rounded-lg">
+        <div className="bg-[#0A0B09] p-8 sm:p-12 rounded-lg border border-[#bf3a0d]/30">
           {/* Header */}
           <div className="text-center mb-8">
             <h1 className="text-4xl sm:text-5xl font-bold text-[#ffffff] mb-3">
@@ -156,9 +213,6 @@ const LearnPage = () => {
                 </button>
               ))}
             </div>
-            <button className="w-full text-center text-sm text-[#bf3a0d] hover:text-[#bf3a0d]/80 font-medium mt-3 py-2">
-              See more
-            </button>
           </div>
         </div>
       </div>

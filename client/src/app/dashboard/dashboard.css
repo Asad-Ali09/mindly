@@ -167,6 +167,28 @@
   flex-shrink: 0;
 }
 
+/* Sidebar Footer */
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid var(--dashboard-card-border);
+}
+
+.logout-button {
+  color: var(--dashboard-text-secondary);
+  background: transparent;
+  border: none;
+}
+
+.logout-button:hover {
+  color: #ff6b6b;
+  background: rgba(255, 107, 107, 0.08);
+}
+
+.logout-button:hover::before {
+  background: linear-gradient(to bottom, #ff6b6b, #ff4444);
+}
+
 /* Main Content Area */
 .dashboard-main {
   margin-left: var(--dashboard-sidebar-width);

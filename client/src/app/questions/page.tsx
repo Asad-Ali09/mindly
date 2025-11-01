@@ -3,9 +3,12 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useLearningStore } from '@/store';
+import { useAuthStore } from '@/store';
 import { aiApi } from '@/api';
 import { Tiles } from '@/components/ui/tiles';
+import { AnimatedGroup } from '@/components/ui/animated-group';
 
 const QuestionsPage = () => {
   const router = useRouter();
@@ -18,6 +21,7 @@ const QuestionsPage = () => {
     isLoadingOutline,
     setIsLoadingOutline,
   } = useLearningStore();
+  const { user } = useAuthStore();
 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -145,7 +149,7 @@ const QuestionsPage = () => {
   if (!currentQuestion) return null;
 
   return (
-    <div className="relative min-h-screen bg-[#141712] p-4 py-8 overflow-hidden">
+    <div className="relative min-h-screen flex flex-col bg-[#0A0B09] overflow-hidden">
       {/* Animated Tiles Background */}
       <div className="fixed inset-0 z-0 opacity-60">
         <Tiles 
@@ -155,10 +159,63 @@ const QuestionsPage = () => {
           tileClassName="border-[#bf3a0d]/50"
         />
       </div>
+
+      {/* Header */}
+      <header className="hero-header">
+        <AnimatedGroup
+          variants={{
+            container: {
+              visible: {
+                transition: {
+                  staggerChildren: 0.1,
+                  delayChildren: 0,
+                },
+              },
+            },
+            item: {
+              hidden: {
+                opacity: 0,
+                y: -20,
+              },
+              visible: {
+                opacity: 1,
+                y: 0,
+                transition: {
+                  type: 'spring' as const,
+                  bounce: 0.4,
+                  duration: 1,
+                },
+              },
+            },
+          }}
+          className="w-full flex justify-between items-center"
+        >
+          <div>
+            <Link href="/" className="hero-brand">
+              <span>Mindly</span>
+            </Link>
+          </div>
+          <div>
+            {user ? (
+              <Link href="/dashboard">
+                <button className="hero-cta" type="button">
+                  Dashboard
+                </button>
+              </Link>
+            ) : (
+              <Link href="/login">
+                <button className="hero-cta" type="button">
+                  Login now
+                </button>
+              </Link>
+            )}
+          </div>
+        </AnimatedGroup>
+      </header>
       
-      <div className="relative z-10 max-w-4xl mx-auto">
+      <div className="relative z-10 max-w-4xl mx-auto p-4 py-8 mt-24 flex-1">
         {/* Main Card Container */}
-        <div className="bg-[#141712] border border-[#bf3a0d]/30 rounded-2xl shadow-2xl p-6 sm:p-8 backdrop-blur-sm">
+        <div className="bg-[#0A0B09] border border-[#bf3a0d]/30 rounded-2xl shadow-2xl p-6 sm:p-8 backdrop-blur-sm">
           {/* Header */}
           <div className="mb-8">
             <h1 className="text-3xl sm:text-4xl font-bold text-[#ffffff] mb-2">
