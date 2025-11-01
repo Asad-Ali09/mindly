@@ -52,7 +52,53 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-darker flex items-center justify-center px-6 py-12">
+    <div className="min-h-screen bg-darker">
+      {/* Header */}
+      <header className="hero-header">
+        <AnimatedGroup
+          variants={{
+            container: {
+              visible: {
+                transition: {
+                  staggerChildren: 0.1,
+                  delayChildren: 0,
+                },
+              },
+            },
+            item: {
+              hidden: {
+                opacity: 0,
+                y: -20,
+              },
+              visible: {
+                opacity: 1,
+                y: 0,
+                transition: {
+                  type: 'spring' as const,
+                  bounce: 0.4,
+                  duration: 1,
+                },
+              },
+            },
+          }}
+          className="w-full flex justify-between items-center"
+        >
+          <div>
+            <Link href="/" className="hero-brand">
+              <span>Mindly</span>
+            </Link>
+          </div>
+          <div>
+            <Link href="/login">
+              <button className="hero-cta" type="button">
+                Login now
+              </button>
+            </Link>
+          </div>
+        </AnimatedGroup>
+      </header>
+
+      <div className="flex items-center justify-center px-6 py-12 pt-32">
       <div className="w-full max-w-md">
         <AnimatedGroup
           variants={{
@@ -304,6 +350,7 @@ export default function SignupPage() {
             </p>
           </div>
         </AnimatedGroup>
+      </div>
       </div>
     </div>
   )

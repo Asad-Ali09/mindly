@@ -1,6 +1,6 @@
 'use client'
 
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import './dashboard.css'
 import {
@@ -8,7 +8,10 @@ import {
   NotebookIcon,
   FileTextIcon,
   GraduationCapIcon,
+  LogOutIcon,
 } from 'lucide-react'
+import { useAuthStore } from '@/store'
+import toast from 'react-hot-toast'
 
 export default function DashboardLayout({
   children,
@@ -34,6 +37,8 @@ export default function DashboardLayout({
 
 function Sidebar() {
   const pathname = usePathname()
+  const router = useRouter()
+  const { logout } = useAuthStore()
   
   const menuItems = [
     { icon: BarChart3Icon, label: 'Analytics', href: '/dashboard' },
@@ -41,6 +46,12 @@ function Sidebar() {
     { icon: NotebookIcon, label: 'Quizzes', href: '/dashboard/quizzes' },
     { icon: GraduationCapIcon, label: 'Lessons', href: '/dashboard/lessons' },
   ]
+
+  const handleLogout = () => {
+    logout()
+    toast.success('Logged out successfully!')
+    router.push('/')
+  }
 
   return (
     <aside className="sidebar">
@@ -60,6 +71,16 @@ function Sidebar() {
           </a>
         ))}
       </nav>
+
+      <div className="sidebar-footer">
+        <button
+          onClick={handleLogout}
+          className="sidebar-item logout-button"
+        >
+          <LogOutIcon className="sidebar-icon" />
+          <span>Logout</span>
+        </button>
+      </div>
     </aside>
   )
 }
