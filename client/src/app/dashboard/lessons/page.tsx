@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { 
   PlusIcon, 
@@ -12,9 +13,24 @@ import {
   BookOpenIcon,
   VideoIcon,
   FileTextIcon,
-  HeadphonesIcon
+  HeadphonesIcon,
+  Loader2Icon
 } from 'lucide-react'
 import { CornerPlusIcons } from '@/components/ui/corner-plus-icons'
+import { aiApi } from '@/api'
+import { useLearningStore } from '@/store'
+
+interface LessonOutline {
+  _id: string
+  userId: string
+  topic: string
+  knowledgeLevel: string
+  overallObjective: string
+  totalEstimatedDuration: string
+  sections: any[]
+  createdAt: string
+  updatedAt: string
+}
 
 interface Lesson {
   id: string
@@ -28,91 +44,72 @@ interface Lesson {
   completedAt?: Date
   totalModules: number
   completedModules: number
+  outline: LessonOutline
 }
 
-// Sample data
-const SAMPLE_LESSONS: Lesson[] = [
-  {
-    id: '1',
-    title: 'English Grammar Fundamentals',
-    description: 'Master the basics of English grammar including tenses, sentence structure, and parts of speech.',
-    category: 'Grammar',
-    duration: '2h 30m',
-    progress: 85,
-    status: 'in-progress',
-    type: 'video',
-    totalModules: 12,
-    completedModules: 10,
-  },
-  {
-    id: '2',
-    title: 'Business English Communication',
-    description: 'Learn professional communication skills for business environments, emails, and presentations.',
-    category: 'Business English',
-    duration: '3h 15m',
-    progress: 100,
-    status: 'completed',
-    type: 'interactive',
-    completedAt: new Date('2024-10-25'),
-    totalModules: 15,
-    completedModules: 15,
-  },
-  {
-    id: '3',
-    title: 'Pronunciation Practice',
-    description: 'Improve your English pronunciation with guided exercises and audio examples.',
-    category: 'Pronunciation',
-    duration: '1h 45m',
-    progress: 60,
-    status: 'in-progress',
-    type: 'audio',
-    totalModules: 10,
-    completedModules: 6,
-  },
-  {
-    id: '4',
-    title: 'Advanced Vocabulary Building',
-    description: 'Expand your vocabulary with advanced words and phrases for academic and professional contexts.',
-    category: 'Vocabulary',
-    duration: '2h 0m',
-    progress: 0,
-    status: 'not-started',
-    type: 'reading',
-    totalModules: 8,
-    completedModules: 0,
-  },
-  {
-    id: '5',
-    title: 'Conversational English',
-    description: 'Practice everyday conversations, idioms, and colloquial expressions.',
-    category: 'Speaking',
-    duration: '2h 20m',
-    progress: 100,
-    status: 'completed',
-    type: 'video',
-    completedAt: new Date('2024-10-20'),
-    totalModules: 10,
-    completedModules: 10,
-  },
-  {
-    id: '6',
-    title: 'Writing Skills Mastery',
-    description: 'Develop your writing skills for essays, reports, and creative writing.',
-    category: 'Writing',
-    duration: '3h 0m',
-    progress: 30,
-    status: 'in-progress',
-    type: 'interactive',
-    totalModules: 14,
-    completedModules: 4,
-  },
-]
+// Helper function to convert lesson outline to lesson display format
+const convertOutlineToLesson = (outline: LessonOutline): Lesson => {
+  const totalPages = outline.sections.reduce((acc, section) => acc + (section.pages?.length || 0), 0)
+  
+  return {
+    id: outline._id,
+    title: outline.topic,
+    description: outline.overallObjective,
+    category: outline.knowledgeLevel,
+    duration: outline.totalEstimatedDuration,
+    progress: 0, // Default to 0, can be tracked separately later
+    status: 'not-started', // Default status
+    type: 'interactive', // Default type for AI-generated lessons
+    totalModules: outline.sections.length,
+    completedModules: 0, // Default to 0
+    outline: outline
+  }
+}
 
 export default function LessonsPage() {
-  const [lessons] = useState<Lesson[]>(SAMPLE_LESSONS)
+  const router = useRouter()
+  const { setLessonOutline, setCurrentPage } = useLearningStore()
+  
+  const [lessons, setLessons] = useState<Lesson[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [filter, setFilter] = useState<'all' | 'completed' | 'in-progress' | 'not-started'>('all')
   const [typeFilter, setTypeFilter] = useState<'all' | Lesson['type']>('all')
+
+  // Fetch lessons on component mount
+  useEffect(() => {
+    const fetchLessons = async () => {
+      try {
+        setIsLoading(true)
+        setError(null)
+        const response = await aiApi.getUserLessonOutlines()
+        
+        if (response.success && response.data) {
+          const convertedLessons = response.data.map(convertOutlineToLesson)
+          setLessons(convertedLessons)
+        }
+      } catch (err) {
+        console.error('Error fetching lessons:', err)
+        setError('Failed to load lessons. Please try again later.')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchLessons()
+  }, [])
+
+  const handleReviewLesson = (lesson: Lesson) => {
+    // Set the lesson outline in Zustand store
+    setLessonOutline(lesson.outline)
+    
+    // Reset to first page
+    setCurrentPage(0, 0)
+    
+    // Navigate to lesson page
+    router.push('/lesson')
+  }
 
   const filteredLessons = lessons.filter(lesson => {
     const matchesSearch = lesson.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -149,9 +146,20 @@ export default function LessonsPage() {
 
   const completedLessons = lessons.filter(l => l.status === 'completed')
   const inProgressLessons = lessons.filter(l => l.status === 'in-progress')
+  
+  // Parse duration string to get total hours (e.g., "2 hours" or "30 minutes")
   const totalHours = lessons.reduce((sum, l) => {
-    const [hours, mins] = l.duration.split(' ')
-    return sum + parseInt(hours) + (parseInt(mins) / 60)
+    const duration = l.duration.toLowerCase()
+    let hours = 0
+    
+    // Handle "X hours Y minutes" or "X hours" or "X minutes"
+    const hoursMatch = duration.match(/(\d+)\s*hour/i)
+    const minutesMatch = duration.match(/(\d+)\s*minute/i)
+    
+    if (hoursMatch) hours += parseInt(hoursMatch[1])
+    if (minutesMatch) hours += parseInt(minutesMatch[1]) / 60
+    
+    return sum + hours
   }, 0)
 
   return (
@@ -163,66 +171,100 @@ export default function LessonsPage() {
             <h1 className="text-3xl font-bold text-gray-100 mb-2">Lessons</h1>
             <p className="text-gray-400">Continue your learning journey</p>
           </div>
-          <button className="px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all flex items-center gap-2 cursor-pointer">
+          <button 
+            onClick={() => router.push('/learn')}
+            className="px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all flex items-center gap-2 cursor-pointer"
+          >
             <PlusIcon className="w-4 h-4" />
             Create Lesson
           </button>
         </div>
 
-        {/* Stats Row */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="glass-card group p-4">
+        {/* Loading State */}
+        {isLoading && (
+          <div className="glass-card group p-12 text-center">
             <CornerPlusIcons />
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-orange-500/10 rounded-lg">
-                <GraduationCapIcon className="w-6 h-6 text-orange-400" />
-              </div>
-              <div>
-                <p className="text-gray-400 text-sm">Total Lessons</p>
-                <p className="text-2xl font-bold text-gray-100">{lessons.length}</p>
-              </div>
-            </div>
+            <Loader2Icon className="w-12 h-12 text-orange-400 mx-auto mb-4 animate-spin" />
+            <h3 className="text-xl font-semibold text-gray-300 mb-2">Loading lessons...</h3>
+            <p className="text-gray-500">Please wait while we fetch your lessons</p>
           </div>
+        )}
 
-          <div className="glass-card group p-4">
+        {/* Error State */}
+        {error && !isLoading && (
+          <div className="glass-card group p-12 text-center border-red-500/20">
             <CornerPlusIcons />
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-green-500/10 rounded-lg">
-                <CheckCircleIcon className="w-6 h-6 text-green-400" />
-              </div>
-              <div>
-                <p className="text-gray-400 text-sm">Completed</p>
-                <p className="text-2xl font-bold text-gray-100">{completedLessons.length}</p>
-              </div>
+            <div className="w-12 h-12 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-2xl">⚠️</span>
             </div>
+            <h3 className="text-xl font-semibold text-gray-300 mb-2">Error loading lessons</h3>
+            <p className="text-gray-500 mb-4">{error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-orange-500/20 border border-orange-500/50 text-orange-400 rounded-lg hover:bg-orange-500/30 transition-all"
+            >
+              Retry
+            </button>
           </div>
+        )}
 
-          <div className="glass-card group p-4">
-            <CornerPlusIcons />
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-blue-500/10 rounded-lg">
-                <PlayIcon className="w-6 h-6 text-blue-400" />
+        {/* Content - Only show when not loading and no error */}
+        {!isLoading && !error && (
+          <>
+            {/* Stats Row */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="glass-card group p-4">
+                <CornerPlusIcons />
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-orange-500/10 rounded-lg">
+                    <GraduationCapIcon className="w-6 h-6 text-orange-400" />
+                  </div>
+                  <div>
+                    <p className="text-gray-400 text-sm">Total Lessons</p>
+                    <p className="text-2xl font-bold text-gray-100">{lessons.length}</p>
+                  </div>
+                </div>
               </div>
-              <div>
-                <p className="text-gray-400 text-sm">In Progress</p>
-                <p className="text-2xl font-bold text-gray-100">{inProgressLessons.length}</p>
-              </div>
-            </div>
-          </div>
 
-          <div className="glass-card group p-4">
-            <CornerPlusIcons />
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-purple-500/10 rounded-lg">
-                <ClockIcon className="w-6 h-6 text-purple-400" />
+              <div className="glass-card group p-4">
+                <CornerPlusIcons />
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-green-500/10 rounded-lg">
+                    <CheckCircleIcon className="w-6 h-6 text-green-400" />
+                  </div>
+                  <div>
+                    <p className="text-gray-400 text-sm">Completed</p>
+                    <p className="text-2xl font-bold text-gray-100">{completedLessons.length}</p>
+                  </div>
+                </div>
               </div>
-              <div>
-                <p className="text-gray-400 text-sm">Total Hours</p>
-                <p className="text-2xl font-bold text-gray-100">{totalHours.toFixed(1)}h</p>
+
+              <div className="glass-card group p-4">
+                <CornerPlusIcons />
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-blue-500/10 rounded-lg">
+                    <PlayIcon className="w-6 h-6 text-blue-400" />
+                  </div>
+                  <div>
+                    <p className="text-gray-400 text-sm">In Progress</p>
+                    <p className="text-2xl font-bold text-gray-100">{inProgressLessons.length}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="glass-card group p-4">
+                <CornerPlusIcons />
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-purple-500/10 rounded-lg">
+                    <ClockIcon className="w-6 h-6 text-purple-400" />
+                  </div>
+                  <div>
+                    <p className="text-gray-400 text-sm">Total Hours</p>
+                    <p className="text-2xl font-bold text-gray-100">{totalHours.toFixed(1)}h</p>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
 
         {/* Search and Filter */}
         <div className="glass-card group p-4">
@@ -328,9 +370,12 @@ export default function LessonsPage() {
                 </div>
               </div>
 
-              <button className="w-full px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all flex items-center justify-center gap-2 cursor-pointer">
+              <button 
+                onClick={() => handleReviewLesson(lesson)}
+                className="w-full px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
                 <PlayIcon className="w-4 h-4" />
-                {lesson.status === 'completed' ? 'Review Lesson' : lesson.status === 'in-progress' ? 'Continue Learning' : 'Start Lesson'}
+                Review Lesson
               </button>
             </div>
           ))}
@@ -347,6 +392,8 @@ export default function LessonsPage() {
                 : 'Start by creating your first lesson'}
             </p>
           </div>
+        )}
+          </>
         )}
       </div>
     </div>

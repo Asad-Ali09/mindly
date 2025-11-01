@@ -325,6 +325,43 @@ class QuizController {
   }
 
   /**
+   * Get all quizzes for the logged-in user
+   * GET /api/quiz/user/all
+   * Protected Route - Requires Authentication
+   */
+  async getAllUserQuizzes(req: Request, res: Response) {
+    try {
+      const user = req.user;
+
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+        });
+      }
+
+      // Find all quizzes for this user, sorted by most recent
+      const quizzes = await Quiz.find({ userId: user._id })
+        .sort({ createdAt: -1 })
+        .select('-__v')
+        .lean();
+
+      return res.status(200).json({
+        success: true,
+        data: quizzes,
+        count: quizzes.length,
+      });
+    } catch (error) {
+      console.error('Error in getAllUserQuizzes:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to fetch user quizzes',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  /**
    * Submit quiz answers and get results
    * POST /api/quiz/:quizId/submit
    * Body: { answers: Record<string, string> }
