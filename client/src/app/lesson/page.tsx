@@ -663,59 +663,35 @@ const LessonPage = () => {
 
   return (
     <div className="h-screen flex flex-col bg-[#141712]">
-      {/* Header */}
+      {/* Header - Only Page Info */}
       <div className="bg-[#141712] border-b border-[#bf3a0d]/20 text-[#ffffff] px-6 py-3 flex items-center justify-between shadow-lg">
-        <div className="flex gap-3">
+        {/* Left side: Home Button and Page Info */}
+        <div className="flex items-center gap-4">
+          {/* Home Button */}
           <button
-            onClick={isPlaying ? handlePause : handleStart}
-            disabled={!lesson || isLoadingWhiteboard}
-            className="px-4 py-2 bg-[#bf3a0d] hover:bg-[#bf3a0d]/90 disabled:bg-[#ffffff]/20 disabled:cursor-not-allowed rounded-lg transition-colors"
-          > 
-            {isPlaying ? '⏸ Pause' : '▶ Play'}
-          </button>
-          <button
-            onClick={handleReset}
-            className="px-4 py-2 bg-[#bf3a0d]/70 hover:bg-[#bf3a0d] rounded-lg transition-colors"
+            onClick={() => router.push('/')}
+            className="px-4 py-2 bg-[#bf3a0d]/90 hover:bg-[#bf3a0d] rounded-lg transition-colors flex items-center gap-2"
+            title="Go to Home"
           >
-            ⏹ Reset
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+            </svg>
+            <span className="text-sm font-medium">Home</span>
           </button>
-          <button
-            onClick={handleClear}
-            className="px-4 py-2 bg-[#ffffff]/10 hover:bg-[#ffffff]/20 rounded-lg transition-colors"
-          >
-            Clear
-          </button>
+          
+          {pageInfo && (
+            <div className="text-sm bg-[#ffffff]/10 px-4 py-2 rounded-lg">
+              <span className="text-[#ffffff]/60">Section {currentSectionIndex + 1}, Page {currentPageIndex + 1}:</span>
+              <span className="ml-2 font-semibold text-[#ffffff]">{pageInfo.page.title}</span>
+            </div>
+          )}
+          {lesson && (
+            <span className="text-[#ffffff] text-sm font-medium">{lesson.topic}</span>
+          )}
         </div>
 
-        {/* Page Navigation */}
+        {/* Right side: Audio Status and Lesson Outline Button */}
         <div className="flex items-center gap-3">
-          {/* Mic Button */}
-          <button
-            onClick={handleMicClick}
-            className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
-              isListening 
-                ? 'bg-red-600 hover:bg-red-700 animate-pulse' 
-                : 'bg-[#bf3a0d] hover:bg-[#bf3a0d]/90'
-            }`}
-            title="Ask a question"
-          >
-            {isListening ? (
-              <>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 002 0V8a1 1 0 00-1-1zm4 0a1 1 0 00-1 1v4a1 1 0 002 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
-                Stop
-              </>
-            ) : (
-              <>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clipRule="evenodd" />
-                </svg>
-                Ask
-              </>
-            )}
-          </button>
-          {/* Audio fetch status */}
           {(audioTotal > 0) && (
             <div className="text-sm px-3 py-1 rounded-md flex items-center gap-2"
                  style={{ background: audioFetchLoading ? 'rgba(191, 58, 13, 0.15)' : 'rgba(191, 58, 13, 0.1)', color: audioFetchLoading ? '#bf3a0d' : '#bf3a0d' }}>
@@ -729,32 +705,8 @@ const LessonPage = () => {
               )}
             </div>
           )}
-          {pageInfo && (
-            <div className="text-sm bg-[#ffffff]/10 px-4 py-2 rounded-lg">
-              <span className="text-[#ffffff]/60">Section {currentSectionIndex + 1}, Page {currentPageIndex + 1}:</span>
-              <span className="ml-2 font-semibold text-[#ffffff]">{pageInfo.page.title}</span>
-            </div>
-          )}
-          <button
-            onClick={handlePreviousPage}
-            disabled={!canGoPrevious}
-            className="px-4 py-2 bg-[#bf3a0d] hover:bg-[#bf3a0d]/90 disabled:bg-[#ffffff]/20 disabled:cursor-not-allowed rounded-lg transition-colors flex items-center gap-2"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
-            </svg>
-            Previous
-          </button>
-          <button
-            onClick={handleNextPage}
-            disabled={!canGoNext && !isLastPageOfLastSection}
-            className="px-4 py-2 bg-[#bf3a0d] hover:bg-[#bf3a0d]/90 disabled:bg-[#ffffff]/20 disabled:cursor-not-allowed rounded-lg transition-colors flex items-center gap-2"
-          >
-            {isLastPageOfLastSection ? 'Take Final Quiz' : 'Next'}
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-            </svg>
-          </button>
+          {/* Lesson Outline Button */}
+          <LessonOutlineOverlay inHeader={true} />
         </div>
       </div>
 
@@ -771,7 +723,6 @@ const LessonPage = () => {
                 style={{ width: `${(currentTime / lesson.totalDuration) * 100}%` }}
               />
             </div>
-            <span className="text-[#ffffff] text-sm font-medium">{lesson.topic}</span>
           </div>
         </div>
       )}
@@ -804,7 +755,8 @@ const LessonPage = () => {
           </div>
         )}
 
-        <div className="flex-1 min-w-0">
+        {/* Whiteboard - increased width */}
+        <div className="flex-1 min-w-0 flex flex-col">
           <Whiteboard 
             key={clearKey}
             isPlaying={isPlaying}
@@ -843,21 +795,119 @@ const LessonPage = () => {
           />
         </div>
 
-        {/* Avatar panel - shown on md+ screens next to the whiteboard */}
-        <div className="hidden md:flex md:w-1/3 lg:w-1/4 items-center justify-center p-4 bg-[#141712] border-l border-[#bf3a0d]/20">
-          <div className=" w-full h-full max-w-sm max-h-[600px] rounded-lg shadow-lg bg-[#141712] border border-[#bf3a0d]/30 backdrop-blur-sm overflow-hidden">
-            <Canvas camera={{ position: [0, 0.1, 3.2], fov: 40 }} className="w-full h-[420px]">
+        {/* Avatar panel - reduced width, zoomed in character */}
+        <div className="hidden md:flex md:w-[280px] lg:w-[320px] items-center justify-center p-4 bg-[#141712] border-l border-[#bf3a0d]/20">
+          <div className="w-full h-full max-w-sm rounded-lg shadow-lg bg-[#141712] border border-[#bf3a0d]/30 backdrop-blur-sm overflow-hidden">
+            <Canvas camera={{ position: [0, 1.5, 2], fov: 30 }} className="w-full h-full">
               <ambientLight intensity={0.6} />
               <directionalLight position={[5, 10, 5]} intensity={1} />
               <Suspense fallback={null}>
-                <Avatar animations={animationClips} animation={activeAvatarAnimation} audioElement={currentAudioElement} position={[0, -1, 0]} />
+                <Avatar animations={animationClips} animation={activeAvatarAnimation} audioElement={currentAudioElement} position={[0.07, -2, 0]}  />
               </Suspense>
             </Canvas>
           </div>
         </div>
+      </div>
 
-        {/* Lesson Outline Overlay */}
-        <LessonOutlineOverlay />
+      {/* Bottom Control Bar */}
+      <div className="bg-[#141712] border-t border-[#bf3a0d]/20 px-6 py-4">
+        <div className="flex items-center justify-between gap-4">
+          {/* Playback Controls */}
+          <div className="flex gap-3">
+            <button
+              onClick={isPlaying ? handlePause : handleStart}
+              disabled={!lesson || isLoadingWhiteboard}
+              className="px-5 py-2.5 bg-[#bf3a0d] hover:bg-[#bf3a0d]/90 disabled:bg-[#ffffff]/20 disabled:cursor-not-allowed rounded-lg transition-colors font-medium flex items-center gap-2"
+            > 
+              {isPlaying ? (
+                <>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  Pause
+                </>
+              ) : (
+                <>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                  </svg>
+                  Play
+                </>
+              )}
+            </button>
+            <button
+              onClick={handleReset}
+              className="px-5 py-2.5 bg-[#bf3a0d]/70 hover:bg-[#bf3a0d] rounded-lg transition-colors font-medium flex items-center gap-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+              </svg>
+              Reset
+            </button>
+            <button
+              onClick={handleClear}
+              className="px-5 py-2.5 bg-[#ffffff]/10 hover:bg-[#ffffff]/20 rounded-lg transition-colors font-medium flex items-center gap-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              Clear
+            </button>
+          </div>
+
+          {/* Center - Ask Question Button */}
+          <div className="flex-1 flex justify-center">
+            <button
+              onClick={handleMicClick}
+              className={`px-6 py-2.5 rounded-lg transition-colors flex items-center gap-2 font-medium ${
+                isListening 
+                  ? 'bg-red-600 hover:bg-red-700 animate-pulse' 
+                  : 'bg-[#bf3a0d] hover:bg-[#bf3a0d]/90'
+              }`}
+              title="Ask a question"
+            >
+              {isListening ? (
+                <>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 002 0V8a1 1 0 00-1-1zm4 0a1 1 0 00-1 1v4a1 1 0 002 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  Stop Listening
+                </>
+              ) : (
+                <>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clipRule="evenodd" />
+                  </svg>
+                  Ask a Question
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Navigation Controls */}
+          <div className="flex gap-3">
+            <button
+              onClick={handlePreviousPage}
+              disabled={!canGoPrevious}
+              className="px-5 py-2.5 bg-[#bf3a0d] hover:bg-[#bf3a0d]/90 disabled:bg-[#ffffff]/20 disabled:cursor-not-allowed rounded-lg transition-colors flex items-center gap-2 font-medium"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
+              Previous
+            </button>
+            <button
+              onClick={handleNextPage}
+              disabled={!canGoNext && !isLastPageOfLastSection}
+              className="px-5 py-2.5 bg-[#bf3a0d] hover:bg-[#bf3a0d]/90 disabled:bg-[#ffffff]/20 disabled:cursor-not-allowed rounded-lg transition-colors flex items-center gap-2 font-medium"
+            >
+              {isLastPageOfLastSection ? 'Take Final Quiz' : 'Next'}
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Speech Recognition Text Box */}

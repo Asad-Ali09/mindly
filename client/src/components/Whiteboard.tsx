@@ -129,20 +129,23 @@ const Whiteboard: React.FC<WhiteboardProps> = ({
       const containerWidth = container.clientWidth;
       const containerHeight = container.clientHeight;
 
-      // Account for padding and borders
+      // Account for padding and borders more accurately
       const isMobile = window.innerWidth < 640;
-      const outerPadding = isMobile ? 8 : 16;
-      const innerPadding = isMobile ? 8 : 16;
-      const borderWidth = 4 + 2; // outer border + canvas border
+      const containerPadding = isMobile ? 16 : 32; // p-2 (8px*2) or p-4 (16px*2) on each side
+      const whiteBorder = 8; // border-4 = 4px * 2 sides
+      const innerPadding = isMobile ? 16 : 32; // p-2 or p-4 inside white container
+      const canvasBorder = 4; // border-2 = 2px * 2 sides
       
-      const totalOffset = (outerPadding + innerPadding + borderWidth) * 2;
-      const availableWidth = Math.max(containerWidth - totalOffset, 100);
-      const availableHeight = Math.max(containerHeight - totalOffset, 100);
+      const totalHorizontalOffset = containerPadding + whiteBorder + innerPadding + canvasBorder;
+      const totalVerticalOffset = containerPadding + whiteBorder + innerPadding + canvasBorder;
+      
+      const availableWidth = Math.max(containerWidth - totalHorizontalOffset, 100);
+      const availableHeight = Math.max(containerHeight - totalVerticalOffset, 100);
 
       // Calculate scale to fit container while maintaining aspect ratio
       const scaleX = availableWidth / BASE_WIDTH;
       const scaleY = availableHeight / BASE_HEIGHT;
-      const newScale = Math.min(scaleX, scaleY);
+      const newScale = Math.min(scaleX, scaleY, 1); // Don't scale up beyond 1
 
       const newWidth = Math.floor(BASE_WIDTH * newScale);
       const newHeight = Math.floor(BASE_HEIGHT * newScale);
@@ -874,14 +877,14 @@ const Whiteboard: React.FC<WhiteboardProps> = ({
   return (
     <div className="w-full h-full flex flex-col relative">
       
-      <div ref={containerRef} className="flex-1 flex items-center justify-center bg-[#141712] p-2 sm:p-4 overflow-hidden w-full">
-        <div className="bg-[#ffffff] rounded-lg shadow-2xl border-4 border-[#bf3a0d]/30 p-2 sm:p-4 max-w-full max-h-full flex items-center justify-center">
+      <div ref={containerRef} className="flex-1 flex items-center justify-center bg-[#141712] p-2 sm:p-4 overflow-hidden">
+        <div className="bg-[#ffffff] rounded-lg shadow-2xl border-4 border-[#bf3a0d]/30 p-2 sm:p-4 flex items-center justify-center" style={{ maxWidth: '100%', maxHeight: '100%' }}>
           <canvas
             ref={canvasRef}
             width={canvasWidth}
             height={canvasHeight}
-            className="border-2 border-[#bf3a0d]/20 rounded cursor-crosshair max-w-full max-h-full"
-            style={{ display: 'block' }}
+            className="border-2 border-[#bf3a0d]/20 rounded cursor-crosshair"
+            style={{ display: 'block', maxWidth: '100%', maxHeight: '100%', width: 'auto', height: 'auto' }}
           />
         </div>
       </div>
