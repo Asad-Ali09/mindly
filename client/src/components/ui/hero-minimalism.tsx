@@ -3,6 +3,7 @@
 import { useEffect, useRef, memo, useCallback } from "react";
 import Link from "next/link";
 import { AnimatedGroup } from "@/components/ui/animated-group";
+import { useAuthStore } from "@/store";
 
 // Memoized particle canvas component
 const ParticleCanvas = memo(() => {
@@ -184,9 +185,14 @@ const transitionVariants = {
 };
 
 export default function MinimalHero() {
+  const { user } = useAuthStore();
   const handleStartLearning = useCallback(() => {
-    window.location.href = '/learn';
-  }, []);
+    if (user) {
+      window.location.href = '/learn';
+    } else {
+      window.location.href = '/login';
+    }
+  }, [user]);
 
   return (
     <section className="minimal-hero-root">
@@ -226,9 +232,19 @@ export default function MinimalHero() {
             </Link>
           </div>
           <div>
-            <button className="hero-cta" type="button" onClick={handleStartLearning}>
-              Start Learning
-            </button>
+            {user ? (
+              <Link href="/dashboard">
+                <button className="hero-cta" type="button">
+                  Dashboard
+                </button>
+              </Link>
+            ) : (
+              <Link href="/login">
+                <button className="hero-cta" type="button">
+                  Login now
+                </button>
+              </Link>
+            )}
           </div>
         </AnimatedGroup>
       </header>
@@ -273,6 +289,11 @@ export default function MinimalHero() {
             <p className="hero-subtitle">
               Master any subject with personalized AI guidance that adapts to your pace.
             </p>
+          </div>
+          <div>
+            <button className="hero-cta mt-8" type="button" onClick={handleStartLearning}>
+              Start Learning
+            </button>
           </div>
         </AnimatedGroup>
       </main>
