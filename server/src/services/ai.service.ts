@@ -398,20 +398,28 @@ IMPORTANT: Return ONLY valid JSON (no markdown, no code blocks):
     {
       "timestamp": 0,
       "text": "Caption text - should be detailed and explanatory",
-      "duration": 5,
+      "duration": 10,
       "position": "bottom"
     }
   ],
   "animations": [
     {
-      "id": "talking-1",
-      "name": "Talking (1)",
+      "id": "talking-2",
+      "name": "Talking (2)",
       "start": 0,
-      "duration": 5.17,
+      "duration": 10.27,
       "loop": false
     }
   ]
 }
+
+**CRITICAL ANIMATION-CAPTION SYNC RULES**:
+1. Animation "start" MUST EXACTLY equal caption "timestamp" (no offset/delay)
+2. Animation "duration" MUST be ≥ caption "duration" to prevent abrupt cutoffs
+3. For 8-12s captions → use "talking-2" (10.27s)
+4. For 5-8s captions → use "talking-1" (5.17s) 
+5. For 3-5s captions → use "talking" (3.77s)
+6. Gaps between captions: use "breathing-idle" for 0.5-1 second ONLY
 
 DRAWING TYPES AND PROPERTIES:
 
@@ -540,40 +548,53 @@ CANVAS DIMENSIONS: 800x600 (design for this size)
 3. CAPTIONS (SUPPORTING ROLE - 25% of attention):
    - Generate 4-6 concise captions (NOT 5-8 like before)
    - Each caption: 20-30 words maximum (8-12 seconds duration)
-   - CRITICAL: 2-3 second gaps between ALL captions (longer pauses)
+   - **CRITICAL: 0.1-0.3 second gaps between captions MAXIMUM (like natural speech flow)**
+   - Think of captions as ONE CONTINUOUS SPEECH with tiny breath pauses, NOT separate sentences
    - Captions should describe what's being drawn or direct attention
    - Use captions to guide visual understanding, not as primary teaching tool
    - Position: "bottom" for all captions to avoid content overlap
-   - TIMING PATTERN:
+   - TIMING PATTERN FOR FLOWING SPEECH:
      * Caption 1: timestamp 0, duration 10 seconds
-     * GAP: 2-3 seconds (no caption)
-     * Caption 2: timestamp 13, duration 9 seconds
-     * GAP: 2-3 seconds
-     * Caption 3: timestamp 25, duration 10 seconds
-     * Continue pattern...
+     * GAP: 0.1-0.3 second (barely noticeable breath)
+     * Caption 2: timestamp 10.2, duration 9 seconds
+     * GAP: 0.1-0.3 second (barely noticeable breath)
+     * Caption 3: timestamp 19.4, duration 10 seconds
+     * Continue pattern with MINIMAL gaps...
 
 4. ANIMATIONS (25% of attention):
+   - **CRITICAL SYNC RULE**: Animations MUST start at EXACT same timestamp as captions (0.0 seconds - no delay)
    - Character MUST be animated during caption playback
-   - Use "breathing-idle" during ALL gaps between captions (2-3 seconds)
+   - **CONTINUOUS SPEECH**: Use "breathing-idle" ONLY during tiny gaps (0.1-0.3 seconds) - barely visible
+   - **IMPORTANT**: Each talking animation must FULLY COVER its caption duration - NO PREMATURE CUTOFFS
    - Animation sequence:
-     * "hands-forward-gesture" (3.10s): When introducing visuals
-     * "talking-1" (5.17s): During explanations
-     * "talking-2" (10.27s): For longer explanations
-     * "talking" (3.77s): For variety
-     * "head-nod-yes" (2.60s): When confirming concepts
-     * "breathing-idle" (infinite): During gaps (ALWAYS)
-   - Animations must start at same timestamp as captions
-   - Switch to "breathing-idle" immediately when caption ends
+     * "hands-forward-gesture" (3.10s): When introducing visuals - use ONLY if caption is shorter than 3 seconds
+     * "talking-1" (5.17s): During explanations - use for 5-8 second captions
+     * "talking-2" (10.27s): For longer explanations - use for 8-12 second captions
+     * "talking" (3.77s): For variety - use for 3-5 second captions
+     * "head-nod-yes" (2.60s): When confirming concepts - use ONLY for very short captions
+     * "breathing-idle" (infinite): During TINY gaps only (0.1-0.3s)
+   - **MATCHING RULE**: Choose talking animation that is EQUAL TO OR LONGER than caption duration
+   - If caption is 10 seconds, use "talking-2" (10.27s), NOT "talking-1" (5.17s)
+   - **SEAMLESS TRANSITION**: Gap should be so short it feels like continuous speaking
+   - Animation timing examples for FLOWING SPEECH:
+     * Caption at timestamp 0, duration 10s → Animation: start 0, use "talking-2" (10.27s)
+     * TINY Gap from 10-10.2s → Animation: "breathing-idle" from 10 to 10.2 (0.2s)
+     * Caption at timestamp 10.2, duration 8s → Animation: start 10.2, use "talking-2" (10.27s)
+     * TINY Gap from 18.2-18.4s → Animation: "breathing-idle" from 18.2 to 18.4 (0.2s)
+     * Caption at timestamp 18.4, duration 9s → Animation: start 18.4, use "talking-2" (10.27s)
 
-⏱️ REVISED PACING RULES:
+⏱️ REVISED PACING RULES FOR CONTINUOUS FLOWING SPEECH:
 - Caption duration: 8-12 seconds each (LONGER than before)
-- Gaps between captions: 2-3 seconds (MANDATORY - increased from 1-2)
+- **Gaps between captions: 0.1-0.3 second MAXIMUM (like taking a tiny breath mid-sentence)**
+- **SPEECH FLOW**: Should sound like one continuous explanation with natural micro-pauses
 - Drawing intervals: 3-6 seconds apart (FASTER - more visuals)
 - Drawing reveal duration: 0.3-0.6 seconds (quick appearance)
 - Page duration targets:
-  * 30 seconds: 4 captions + 6-8 drawings
-  * 45 seconds: 5 captions + 8-10 drawings
-  * 60 seconds: 6 captions + 10-12 drawings
+  * 30 seconds: 4 captions + 6-8 drawings (almost continuous speech)
+  * 45 seconds: 5 captions + 8-10 drawings (almost continuous speech)
+  * 60 seconds: 6 captions + 10-12 drawings (almost continuous speech)
+- **SYNC REQUIREMENT**: Animation start timestamp MUST EXACTLY match caption timestamp (no offset)
+- **FLOW REQUIREMENT**: Minimize dead air - gaps should be imperceptible (0.1-0.3s only)
 
 📐 LAYOUT PLANNING PROCESS:
 Step 1: Sketch mental layout (which visual goes where)
@@ -582,14 +603,18 @@ Step 3: Plan drawing sequence (which appears first, second, etc.)
 Step 4: Set timestamps with 3-6 second spacing
 Step 5: Write captions that reference the visuals
 
-OVERLAP PREVENTION CHECKLIST:
-- [ ] Title is at top (y < 100), captions at bottom (no caption position conflicts)
+OVERLAP PREVENTION CHECKLIST (MANDATORY - CHECK EVERY ELEMENT):
+- [ ] Title is at top (y: 60-80), captions at bottom (no caption position conflicts)
 - [ ] Main visuals are in center zone (y: 150-450)
 - [ ] Text labels are positioned near (but not on top of) their visual elements
-- [ ] Elements have at least 20px spacing between them
+- [ ] **CRITICAL**: Elements have at least 30px spacing between them (increased from 20px)
+- [ ] **TEXT SPACING**: If two text elements are nearby, ensure 40px+ vertical spacing
+- [ ] **SHAPE SPACING**: Rectangles/circles must have 30px+ clearance from other shapes
 - [ ] Nothing is positioned at x < 50 or x > 750
 - [ ] Nothing is positioned at y < 50 or y > 550
 - [ ] Arrows/lines connect elements without crossing through other elements
+- [ ] **BEFORE FINALIZING**: Mentally visualize the canvas and check for ANY potential overlaps
+- [ ] If in doubt, add MORE spacing - better too much space than overlap
 
 📏 COORDINATE EXAMPLES (800x600 canvas):
 - Page title: MUST BE CENTERED - For "Python Basics" (13 chars, fontSize 24):
@@ -629,24 +654,43 @@ COMMON TEXT CALCULATIONS (for centering at x=400):
 - Highlights: #fbbf24 (yellow/gold, opacity: 0.3) - emphasize areas
 - Use consistent colors for similar concept types
 
-🎯 TIMING STRATEGY EXAMPLE (45-second page):
+🎯 TIMING STRATEGY EXAMPLE (45-second page) - CONTINUOUS FLOWING SPEECH:
+
 Second 0: Title appears (text, center-top)
-Second 0-10: Caption 1 + "hands-forward-gesture" animation
+Second 0-10: Caption 1 (10s duration)
+Second 0-10.27: Animation "talking-2" starts at 0 (covers full caption + slight overlap)
 Second 3: First visual element (main concept shape/diagram)
 Second 6: Second visual (supporting element)
 Second 9: Third visual (label or annotation)
-Second 10-13: GAP - "breathing-idle" animation (NO caption)
-Second 13-22: Caption 2 + "talking-1" animation
-Second 15: Fourth visual (connecting arrow or relationship)
-Second 18: Fifth visual (example or detail)
-Second 21: Sixth visual (highlight or emphasis)
-Second 22-25: GAP - "breathing-idle" animation
-Second 25-35: Caption 3 + "talking-2" animation
-Second 27: Seventh visual (summary element)
-Second 30: Eighth visual (final connection)
-Second 35-38: GAP - "breathing-idle" animation
-Second 38-45: Caption 4 + "talking-1" animation (conclusion)
-Second 40: Ninth visual (reinforcement)
+
+Second 10-10.2: MICRO-GAP - "breathing-idle" animation (0.2s - barely noticeable breath)
+
+Second 10.2-19.2: Caption 2 (9s duration)
+Second 10.2-20.47: Animation "talking-2" starts at 10.2 (10.27s - covers full caption)
+Second 13: Fourth visual (connecting arrow or relationship)
+Second 16: Fifth visual (example or detail)
+
+Second 19.2-19.4: MICRO-GAP - "breathing-idle" animation (0.2s - barely noticeable breath)
+
+Second 19.4-29.4: Caption 3 (10s duration)
+Second 19.4-29.67: Animation "talking-2" starts at 19.4 (covers full caption)
+Second 22: Sixth visual (summary element)
+Second 25: Seventh visual (final connection)
+
+Second 29.4-29.6: MICRO-GAP - "breathing-idle" animation (0.2s - barely noticeable breath)
+
+Second 29.6-38.6: Caption 4 (9s duration)
+Second 29.6-39.87: Animation "talking-2" starts at 29.6 (covers full caption + slight overlap)
+Second 32: Eighth visual (reinforcement)
+Second 35: Ninth visual (conclusion element)
+
+**KEY TIMING RULES FOR FLOWING SPEECH**:
+1. Animations start at EXACT same time as captions (0.0s offset - perfect sync)
+2. **Gaps are 0.1-0.3 second ONLY (imperceptible micro-pauses, like taking a breath)**
+3. Choose animation duration ≥ caption duration to prevent cutoffs
+4. For 8-12s captions, ALWAYS use "talking-2" (10.27s)
+5. **CRITICAL**: Speech should flow continuously - listener shouldn't notice the gaps
+6. Think of it as ONE LONG EXPLANATION, not separate sentences with pauses
 
 UNIQUE PRESENTATION EXAMPLES:
 
@@ -671,15 +715,15 @@ Example 3 - Teaching "Fractions":
 ✅ QUALITY CHECKLIST:
 - [ ] 4-6 captions total (not more)
 - [ ] Each caption is 8-12 seconds duration (LONGER)
-- [ ] 2-3 second gaps between ALL captions (LONGER gaps)
+- [ ] **0.1-0.3 second gaps between captions MAXIMUM (continuous speech flow)**
 - [ ] 6-10 visual elements (drawings/diagrams)
 - [ ] Drawings spaced 3-6 seconds apart (FASTER than captions)
 - [ ] Drawing duration 0.3-0.6 seconds (quick reveal)
 - [ ] Character animated during all captions
-- [ ] "breathing-idle" during ALL gaps
-- [ ] No overlapping elements (20px minimum spacing)
+- [ ] "breathing-idle" during ALL gaps (0.1-0.3s only - imperceptible)
+- [ ] **NO OVERLAPPING ELEMENTS** - 30px minimum spacing (40px for text)
 - [ ] All content within safe zone (x: 50-750, y: 50-550)
-- [ ] Title at top (y < 100), captions at bottom (no position conflicts)
+- [ ] Title at top (y: 60-80), captions at bottom (no position conflicts)
 - [ ] **ALL TEXT IS PROPERLY CENTERED using the formula: startX = centerX - (textWidth/2)**
 - [ ] **Titles use calculated startX, NOT just x=400**
 - [ ] **Rectangles/boxes centered by adjusting start position**
@@ -688,25 +732,113 @@ Example 3 - Teaching "Fractions":
 - [ ] Colors used consistently and strategically
 - [ ] Layout is balanced and organized
 - [ ] Captions reference and guide the visual content
+- [ ] **ANIMATION SYNC**: All animations start at EXACT same timestamp as their captions
+- [ ] **NO CUTOFFS**: Animation duration ≥ caption duration (use "talking-2" for 8-12s captions)
+- [ ] **CONTINUOUS FLOW**: Gaps are 0.1-0.3s (imperceptible) - speech flows like natural conversation
 
-🎯 REMEMBER: 
-1. VISUALS ARE PRIMARY - Drawings and figures are the main teaching tool
-2. LONGER GAPS - 2-3 seconds between captions (increased for processing)
-3. MORE DRAWINGS - 6-10 visual elements per page (increased focus on visuals)
-4. FASTER DRAWING PACE - New visual every 3-6 seconds
-5. PREVENT OVERLAPS - Plan layout carefully, maintain spacing
-6. STAY IN BOUNDS - All content within canvas safe zone
-7. BE CREATIVE - Use unique presentation approach for each concept
-8. BUILD PROGRESSIVELY - Reveal visuals step-by-step, not all at once
-9. **CENTER TEXT PROPERLY** - Calculate startX = centerX - (textWidth/2), don't just use centerX
-10. **CENTER ALL ELEMENTS** - For rectangles, use start = center - (size/2)
+🎯 CRITICAL REMINDERS: 
+
+**SYNC & TIMING (MUST FIX)**:
+1. ⏱️ **EXACT SYNC**: Animation start timestamp = Caption start timestamp (0.0s difference)
+2. ⏱️ **NO CUTOFFS**: Animation duration MUST be ≥ caption duration
+   - For 8-12s captions, use "talking-2" (10.27s)
+   - For 5-8s captions, use "talking-1" (5.17s) or chain animations
+   - For 3-5s captions, use "talking" (3.77s)
+3. ⏱️ **CONTINUOUS SPEECH**: 0.1-0.3 second gaps MAXIMUM (imperceptible micro-pauses)
+4. ⏱️ **NO AWKWARD PAUSES**: Speech must flow like one continuous conversation
+5. ⏱️ **BREATHING IDLE**: Use during TINY gaps only (0.1-0.3s - barely visible)
+
+**OVERLAP PREVENTION (MUST FIX)**:
+5. 📐 **MINIMUM SPACING**: 30px between shapes, 40px between text elements
+6. 📐 **MENTAL VISUALIZATION**: Before finalizing, visualize entire canvas to check overlaps
+7. 📐 **SAFE ZONES**: Keep all content x: 50-750, y: 50-550
+8. 📐 **VERTICAL SEPARATION**: If two text elements are in same x-range, ensure 40px+ y-difference
+
+**CONTENT QUALITY**:
+9. 🎨 VISUALS ARE PRIMARY - Drawings and figures are the main teaching tool
+10. 🎨 MORE DRAWINGS - 6-10 visual elements per page (increased focus on visuals)
+11. 🎨 FASTER DRAWING PACE - New visual every 3-6 seconds
+12. 🎨 BE CREATIVE - Use unique presentation approach for each concept
+13. 🎨 BUILD PROGRESSIVELY - Reveal visuals step-by-step, not all at once
+
+**CENTERING (MUST DO)**:
+14. 📏 **CENTER TEXT PROPERLY** - Calculate startX = centerX - (textWidth/2), don't just use centerX
+15. 📏 **CENTER ALL ELEMENTS** - For rectangles, use start = center - (size/2)
 
 CRITICAL CENTERING REMINDER:
 ❌ WRONG: {type: "text", start: {x: 400, y: 70}, text: "Python Basics", fontSize: 24}
 ✅ CORRECT: {type: "text", start: {x: 322, y: 70}, text: "Python Basics", fontSize: 24}
 (Because text width ≈ 156px, so start at 400-78=322 to center at 400)
 
-The goal is a visually-rich, well-paced lesson where students learn primarily by seeing the concepts illustrated on the whiteboard, with captions providing concise guidance and context. All text and elements must be properly centered, not just starting from the center point.
+CRITICAL SYNC REMINDER:
+❌ WRONG: Caption at 0 (10s), Animation starts at 0.5 or 1 → WILL CAUSE SYNC ISSUES
+❌ WRONG: Caption at 0 (10s), Animation "talking-1" (5.17s) → WILL CUT OFF AT 5s
+✅ CORRECT: Caption at 0 (10s), Animation "talking-2" starts at 0 (10.27s) → PERFECT SYNC
+
+CRITICAL GAP REMINDER:
+❌ TERRIBLE: 2-3 second gaps → Feels robotic and disconnected
+❌ WRONG: 1 second gaps → Still too long, feels awkward
+❌ BAD: 0.5 second gaps → Noticeable pause, breaks flow
+✅ GOOD: 0.2-0.3 second gaps → Natural micro-pause, maintains flow
+✅ PERFECT: 0.1-0.2 second gaps → Seamless, continuous speech
+
+The goal is a visually-rich, well-paced lesson where students learn primarily by seeing the concepts illustrated on the whiteboard, with captions providing concise guidance and context. All text and elements must be properly centered, animations must sync perfectly with captions, and gaps must be IMPERCEPTIBLE (0.1-0.3s) creating a continuous, natural speaking flow.
+
+**FINAL VALIDATION CHECKLIST - MUST VERIFY**:
+Before submitting your JSON response, verify these critical points:
+
+1. ✅ SYNC CHECK: Every animation "start" value EXACTLY matches its caption "timestamp"
+   Example: Caption timestamp: 0 → Animation start: 0 (NOT 0.5, NOT 1)
+   Example: Caption timestamp: 10.5 → Animation start: 10.5 (EXACT match)
+
+2. ✅ CUTOFF CHECK: Every animation duration ≥ its caption duration
+   Example: Caption duration: 10s → Use "talking-2" (10.27s) ✓
+   Example: Caption duration: 10s → Use "talking-1" (5.17s) ✗ WRONG - will cut off!
+
+3. ✅ GAP CHECK: Gaps between captions are 0.1-0.3 second MAXIMUM (continuous flow)
+   Example: Caption 1 ends at 10, Caption 2 starts at 10.2 ✓ PERFECT
+   Example: Caption 1 ends at 10, Caption 2 starts at 10.3 ✓ ACCEPTABLE
+   Example: Caption 1 ends at 10, Caption 2 starts at 10.5 ✗ TOO LONG - feels disconnected
+   Example: Caption 1 ends at 10, Caption 2 starts at 11 ✗ WRONG - awkward pause!
+   Example: Caption 1 ends at 10, Caption 2 starts at 13 ✗ TERRIBLE - unacceptable gap!
+
+4. ✅ OVERLAP CHECK: No visual elements overlap (30px spacing, 40px for text)
+   - Check all x,y coordinates to ensure no collisions
+   - Verify title (y: 60-80) doesn't conflict with content
+   - Ensure text labels don't overlap their diagrams
+   - Confirm shapes have clearance from each other
+
+5. ✅ SPACING EXAMPLE (GOOD):
+   - Title: y=70
+   - Diagram 1: y=200-280 (80px tall)
+   - Diagram 2: y=320-400 (80px tall) → 40px gap from Diagram 1 ✓
+
+6. ✅ SPACING EXAMPLE (BAD):
+   - Title: y=70
+   - Diagram 1: y=200-280
+   - Diagram 2: y=285-365 → Only 5px gap ✗ WILL OVERLAP!
+
+Generate the JSON now, ensuring ALL these checks pass.
+
+**🎙️ FINAL SPEECH FLOW INSTRUCTION - READ THIS CAREFULLY**:
+
+Imagine you are a teacher speaking CONTINUOUSLY to a student. You don't pause for 1-2 seconds between every sentence - that would sound robotic and weird! You speak in a natural flow with only tiny breaths between thoughts.
+
+**CORRECT SPEECH PATTERN** (what we want):
+"Let's learn about variables. [0.2s breath] A variable is like a container. [0.2s breath] It stores information we can use later. [0.2s breath] For example, we can store someone's name."
+
+**WRONG SPEECH PATTERN** (what we DON'T want):
+"Let's learn about variables. [2s awkward pause] A variable is like a container. [2s awkward pause] It stores information we can use later."
+
+**YOUR TASK**: Create captions that flow together with 0.1-0.3 second gaps (barely noticeable), NOT 0.5-2 second gaps (awkward and robotic).
+
+Calculate timestamps precisely:
+- Caption 1: 0 to 10 (10s)
+- Caption 2: 10.2 to 19.2 (9s) ← Only 0.2s gap!
+- Caption 3: 19.4 to 29.4 (10s) ← Only 0.2s gap!
+- Caption 4: 29.6 to 38.6 (9s) ← Only 0.2s gap!
+
+Do NOT use 0.5s, 1s, 2s, or 3s gaps - they sound unnatural and disconnected!
 `;
 
       const result = await this.model.generateContent(prompt);
