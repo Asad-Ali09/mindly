@@ -9,6 +9,7 @@ export interface User {
   email: string;
   createdAt: string;
   updatedAt?: string;
+  googleClassroomConnected?: boolean;
 }
 
 interface AuthState {
@@ -22,6 +23,10 @@ interface AuthState {
   
   // Authentication status
   isAuthenticated: boolean;
+  
+  // Google Classroom connection status
+  googleClassroomConnected: boolean;
+  setGoogleClassroomConnected: (connected: boolean) => void;
   
   // Loading state
   isLoading: boolean;
@@ -42,6 +47,7 @@ const initialState = {
   user: null,
   token: null,
   isAuthenticated: false,
+  googleClassroomConnected: false,
   isLoading: false,
   isHydrated: false,
 };
@@ -55,7 +61,8 @@ export const useAuthStore = create<AuthState>()(
       setUser: (user: User | null) => 
         set({ 
           user, 
-          isAuthenticated: !!user 
+          isAuthenticated: !!user,
+          googleClassroomConnected: user?.googleClassroomConnected || false,
         }),
       
       // Token actions
@@ -66,6 +73,10 @@ export const useAuthStore = create<AuthState>()(
           authApi.setToken(token);
         }
       },
+      
+      // Google Classroom connection actions
+      setGoogleClassroomConnected: (connected: boolean) => 
+        set({ googleClassroomConnected: connected }),
       
       // Loading actions
       setIsLoading: (loading: boolean) => set({ isLoading: loading }),
@@ -81,6 +92,7 @@ export const useAuthStore = create<AuthState>()(
               user: response.data.user,
               token: response.data.token,
               isAuthenticated: true,
+              googleClassroomConnected: response.data.user.googleClassroomConnected || false,
               isLoading: false,
             });
           }
@@ -101,6 +113,7 @@ export const useAuthStore = create<AuthState>()(
               user: response.data.user,
               token: response.data.token,
               isAuthenticated: true,
+              googleClassroomConnected: false,
               isLoading: false,
             });
           }
@@ -117,6 +130,7 @@ export const useAuthStore = create<AuthState>()(
           user: null,
           token: null,
           isAuthenticated: false,
+          googleClassroomConnected: false,
         });
       },
       
@@ -137,6 +151,7 @@ export const useAuthStore = create<AuthState>()(
             set({
               user: response.data.user,
               isAuthenticated: true,
+              googleClassroomConnected: response.data.user.googleClassroomConnected || false,
               isLoading: false,
             });
           }
@@ -147,6 +162,7 @@ export const useAuthStore = create<AuthState>()(
             user: null,
             token: null,
             isAuthenticated: false,
+            googleClassroomConnected: false,
             isLoading: false,
           });
           authApi.logout();
@@ -161,6 +177,7 @@ export const useAuthStore = create<AuthState>()(
       partialize: (state) => ({
         user: state.user,
         token: state.token,
+        googleClassroomConnected: state.googleClassroomConnected,
       }),
       onRehydrateStorage: () => (state) => {
         // Sync token with authApi after rehydration
@@ -199,16 +216,28 @@ export const useAuthStoreHydration = () => {
  */
 export const useAuth = () => {
   const hydrated = useAuthStoreHydration();
-  const { user, isAuthenticated, isLoading, login, signup, logout, fetchCurrentUser } = useAuthStore();
+  const { 
+    user, 
+    isAuthenticated, 
+    googleClassroomConnected,
+    isLoading, 
+    login, 
+    signup, 
+    logout, 
+    fetchCurrentUser,
+    setGoogleClassroomConnected,
+  } = useAuthStore();
   
   return {
     user,
     isAuthenticated: hydrated ? isAuthenticated : false,
+    googleClassroomConnected,
     isLoading,
     isHydrated: hydrated,
     login,
     signup,
     logout,
     fetchCurrentUser,
+    setGoogleClassroomConnected,
   };
 };

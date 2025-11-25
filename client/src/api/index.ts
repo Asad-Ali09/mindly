@@ -8,5 +8,8 @@ export * from './auth.api';
 export { quizApi } from './quiz.api';
 export * from './quiz.api';
 
+export { default as classroomApi } from './classroom.api';
+export * from './classroom.api';
+
 // Export axios instance for custom requests if needed
 export { default as apiClient } from './axios';

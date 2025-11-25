@@ -10,6 +10,11 @@ const config = {
   TTS_SERVICE_URL: process.env.TTS_SERVICE_URL || 'http://localhost:8001',
   mongoUri: process.env.MONGO_URI || 'mongodb://localhost:27017/surge-ai',
   jwtSecret: process.env.JWT_SECRET || 'your-secret-key-change-in-production',
+  
+  // Google OAuth Configuration
+  googleClientId: process.env.GOOGLE_CLIENT_ID || '',
+  googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+  googleCallbackUrl: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:5000/api/auth/google/callback',
 };
 
 export default config;

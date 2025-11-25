@@ -3,12 +3,10 @@ import jwt from 'jsonwebtoken';
 import User, { IUser } from '../models/user.model';
 import config from '../config/config';
 
-// Extend Express Request type to include user
+// Extend Express User type to match our IUser interface
 declare global {
   namespace Express {
-    interface Request {
-      user?: IUser;
-    }
+    interface User extends IUser {}
   }
 }
 

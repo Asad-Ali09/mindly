@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import { createServer } from 'http';
+import passport from 'passport';
 import config from './config/config';
 import routes from './routes';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler';
@@ -18,6 +19,9 @@ app.use(cors({
 
 
 app.use(express.json());
+
+// Initialize Passport
+app.use(passport.initialize());
 
 // Initialize Socket.IO
 initializeSocket(httpServer);
