@@ -37,24 +37,25 @@ export const createGetFileInfoTool = (userId: string) => {
 };
 
 /**
- * Tool: Generate temporary authenticated download URL for a Drive file
+ * Tool: Generate download URL for a Drive file (proxied through backend)
  */
 export const createGenerateDownloadUrlTool = (userId: string) => {
   return new DynamicStructuredTool({
     name: 'generate_download_url',
-    description: `Generates a temporary authenticated download URL for a Google Drive file.
+    description: `Generates a backend download URL for a Google Drive file.
     Use this tool when:
     - User wants to download or access a file
     - User asks to "fetch" or "get" lecture slides, documents, or other materials
     - User needs to view file content
     
     Important: 
-    - The generated URL is temporary and expires in 1 hour
+    - The download URL is a backend endpoint that proxies the file from Google Drive
     - For Google Workspace files (Docs, Sheets, Slides), the file will be auto-exported to appropriate format (PDF for Docs/Slides, Excel for Sheets)
+    - The URL requires authentication (user's JWT token) to access
     - Include this URL in your response so the frontend can create a download button
     
     Input: Google Drive file ID (can be obtained from assignment/course materials)
-    Returns: Complete file information including downloadUrl, name, mimeType, size, and other metadata.
+    Returns: Complete file information including downloadUrl (backend endpoint), name, mimeType, size, and other metadata.
     
     The downloadUrl in the response should be presented to the user for downloading.`,
     schema: z.object({

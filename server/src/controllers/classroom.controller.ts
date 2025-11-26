@@ -169,3 +169,41 @@ export const getAllCoursework = async (req: Request, res: Response) => {
     });
   }
 };
+
+/**
+ * Download a Google Drive file (proxied through backend)
+ * GET /api/classroom/files/download/:fileId
+ */
+export const downloadFile = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user._id;
+    const { fileId } = req.params;
+
+    if (!fileId) {
+      return res.status(400).json({
+        success: false,
+        message: 'File ID is required',
+      });
+    }
+
+    // Get file stream from Drive
+    const result = await classroomService.downloadFile(userId, fileId);
+
+    // Set appropriate headers for file download
+    res.setHeader('Content-Type', result.data.mimeType);
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(result.data.fileName)}"`);
+    
+    // Stream the file to the client
+    result.data.stream.pipe(res);
+  } catch (error: any) {
+    console.error('Error in downloadFile:', error);
+    
+    // If headers haven't been sent yet, send error response
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to download file',
+      });
+    }
+  }
+};

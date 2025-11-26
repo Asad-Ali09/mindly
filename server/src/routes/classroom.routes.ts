@@ -8,6 +8,7 @@ import {
   getCourseAnnouncements,
   getDriveFileDetails,
   getAllCoursework,
+  downloadFile,
 } from '../controllers/classroom.controller';
 import { authMiddleware } from '../middlewares/auth.middleware';
 
@@ -71,5 +72,12 @@ router.get('/coursework/all', getAllCoursework);
  * @access  Private
  */
 router.get('/drive/:fileId', getDriveFileDetails);
+
+/**
+ * @route   GET /api/classroom/files/download/:fileId
+ * @desc    Download a Google Drive file (proxied through backend)
+ * @access  Private
+ */
+router.get('/files/download/:fileId', downloadFile);
 
 export default router;

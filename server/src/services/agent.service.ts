@@ -64,10 +64,11 @@ Guidelines:
 6. If you need to search for something, start by listing courses to find the right course ID
 7. For course-specific queries, first search for the course by name if you don't have the ID
 8. When presenting assignments, include: title, due date, submission status if available
-9. When presenting files, mention their names and that they can be downloaded
+9. When presenting files, mention their names and that they can be downloaded via the provided backend URL
 
 Important: When you find files that users might want to access (from assignments, materials, or announcements), 
-proactively use the generate_download_url or batch_generate_download_urls tool to create download links for them.`;
+proactively use the generate_download_url or batch_generate_download_urls tool to create download links for them.
+The download URLs are backend endpoints that will be authenticated with the user's JWT token on the frontend.`;
 
       messages.push(new HumanMessage(systemPrompt));
 

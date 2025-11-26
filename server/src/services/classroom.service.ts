@@ -418,8 +418,8 @@ export const getAssignmentDetails = async (
 };
 
 /**
- * Generate temporary authenticated download URL for Google Drive files
- * URL expires in 1 hour
+ * Get file metadata and return backend proxy URL for download
+ * Files are downloaded through the backend to comply with Google Drive API changes
  */
 export const generateTemporaryFileUrl = async (userId: string, fileId: string) => {
   try {
@@ -434,23 +434,13 @@ export const generateTemporaryFileUrl = async (userId: string, fileId: string) =
 
     const file = fileResponse.data;
 
-    // For Google Docs, Sheets, Slides - export as PDF
-    let downloadUrl: string;
-    if (file.mimeType?.includes('google-apps')) {
-      // Export Google Workspace files
-      const exportMimeType = getExportMimeType(file.mimeType);
-      downloadUrl = `https://www.googleapis.com/drive/v3/files/${fileId}/export?mimeType=${encodeURIComponent(exportMimeType)}`;
-    } else {
-      // Direct download for regular files
-      downloadUrl = file.webContentLink || `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
-    }
+    // Determine export MIME type for Google Workspace files
+    const exportMimeType = file.mimeType?.includes('google-apps') 
+      ? getExportMimeType(file.mimeType) 
+      : null;
 
-    // Get current access token to append to download URL
-    const credentials = await auth.getAccessToken();
-    const accessToken = credentials.token;
-
-    // Create authenticated download URL (valid for token lifetime, typically 1 hour)
-    const authenticatedUrl = `${downloadUrl}&access_token=${accessToken}`;
+    // Return backend proxy URL instead of direct Google URL
+    const downloadUrl = `/classroom/files/download/${fileId}`;
 
     return {
       success: true,
@@ -458,8 +448,9 @@ export const generateTemporaryFileUrl = async (userId: string, fileId: string) =
         id: file.id!,
         name: file.name!,
         mimeType: file.mimeType!,
+        exportMimeType: exportMimeType || undefined,
         size: file.size,
-        downloadUrl: authenticatedUrl,
+        downloadUrl: downloadUrl,
         webViewLink: file.webViewLink,
         thumbnailLink: file.thumbnailLink,
         iconLink: file.iconLink,
@@ -470,8 +461,68 @@ export const generateTemporaryFileUrl = async (userId: string, fileId: string) =
       },
     };
   } catch (error: any) {
-    console.error('Error generating temporary file URL:', error);
-    throw new Error(error.message || 'Failed to generate file URL');
+    console.error('Error getting file metadata:', error);
+    throw new Error(error.message || 'Failed to get file metadata');
+  }
+};
+
+/**
+ * Download a Google Drive file (proxied through backend)
+ * This method is called by the download endpoint to stream files to the client
+ * Uses Authorization header instead of deprecated access_token query parameter
+ */
+export const downloadFile = async (userId: string, fileId: string) => {
+  try {
+    const auth = await getAuthenticatedClient(userId);
+    const drive = google.drive({ version: 'v3', auth });
+
+    // Get file metadata to determine type
+    const fileResponse = await drive.files.get({
+      fileId: fileId,
+      fields: 'id, name, mimeType',
+    });
+
+    const file = fileResponse.data;
+    let response;
+
+    // Handle Google Workspace files (need export)
+    if (file.mimeType?.includes('google-apps')) {
+      const exportMimeType = getExportMimeType(file.mimeType);
+      response = await drive.files.export(
+        {
+          fileId: fileId,
+          mimeType: exportMimeType,
+        },
+        {
+          responseType: 'stream',
+        }
+      );
+    } else {
+      // Handle regular files (direct download)
+      response = await drive.files.get(
+        {
+          fileId: fileId,
+          alt: 'media',
+        },
+        {
+          responseType: 'stream',
+        }
+      );
+    }
+
+    return {
+      success: true,
+      data: {
+        stream: response.data,
+        fileName: file.name!,
+        mimeType: file.mimeType?.includes('google-apps') 
+          ? getExportMimeType(file.mimeType) 
+          : file.mimeType!,
+      },
+    };
+  } catch (error: any) {
+    console.error('Error downloading file:', error);
+    throw new Error(error.message || 'Failed to download file');
   }
 };
 
