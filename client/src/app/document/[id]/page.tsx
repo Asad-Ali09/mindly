@@ -269,7 +269,7 @@ const DocumentViewPage = () => {
                   shadow-mapSize-height={2048}
                 />
                 <Avatar
-                  position={[0, -3, 5]}
+                  position={[0, -1.75, 5]}
                   scale={2}
                   animation="Breathing Idle"
                   script=""
@@ -281,9 +281,9 @@ const DocumentViewPage = () => {
           </div>
 
           {/* Ask Question Button */}
-          <div className="absolute bottom-8 left-8 right-8">
+          <div className="absolute bottom-8 left-8 right-8 flex items-center justify-center">
             <button
-              className="w-full py-4 px-6 bg-[#bf3a0d] text-[#ffffff] font-semibold rounded-lg hover:bg-[#bf3a0d]/90 transition-colors flex items-center justify-center gap-3"
+              className="max-w-[400px] w-full py-4 px-6 bg-[#bf3a0d] text-[#ffffff] font-semibold rounded-lg hover:bg-[#bf3a0d]/90 transition-colors flex items-center justify-center gap-3"
               onClick={() => {}}
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
