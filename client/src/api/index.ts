@@ -11,5 +11,8 @@ export * from './quiz.api';
 export { default as classroomApi } from './classroom.api';
 export * from './classroom.api';
 
+export { default as agentApi } from './agent.api';
+export * from './agent.api';
+
 // Export axios instance for custom requests if needed
 export { default as apiClient } from './axios';

@@ -440,7 +440,8 @@ export const generateTemporaryFileUrl = async (userId: string, fileId: string) =
       : null;
 
     // Return backend proxy URL instead of direct Google URL
-    const downloadUrl = `/classroom/files/download/${fileId}`;
+    // Use full backend URL for frontend consumption
+    const downloadUrl = `${config.BACKEND_URL}/api/classroom/files/download/${fileId}`;
 
     return {
       success: true,

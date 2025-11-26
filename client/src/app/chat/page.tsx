@@ -1,19 +1,18 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Send, Paperclip, Volume2, FileText, Link as LinkIcon, Pause, Play } from 'lucide-react';
+import { Send, Paperclip, FileText, Download, AlertCircle } from 'lucide-react';
+import { agentApi, ConversationMessage, FileAttachment } from '@/api';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
-  attachments?: {
-    type: 'link' | 'document' | 'audio';
-    url?: string;
-    title?: string;
-    audioUrl?: string;
-  }[];
+  files?: FileAttachment[];
+  error?: boolean;
 }
 
 export default function ChatPage() {
@@ -21,15 +20,13 @@ export default function ChatPage() {
     {
       id: '1',
       role: 'assistant',
-      content: 'Hello! I\'m your AI learning assistant. How can I help you today?',
+      content: 'Hello! I\'m your AI learning assistant. I can help you with your Google Classroom assignments, course materials, and more. Try asking me:\n• "What assignments do I have due tomorrow?"\n• "Show me the slides from my recent lecture"\n• "What\'s going on in my ICC Classroom?"',
       timestamp: new Date(),
     }
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [playingAudio, setPlayingAudio] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -53,34 +50,52 @@ export default function ChatPage() {
     setInput('');
     setIsTyping(true);
 
-    // Simulate AI response (replace with actual API call)
-    setTimeout(() => {
-      const aiMessage: Message = {
+    try {
+      // Build conversation history for context
+      const history: ConversationMessage[] = messages.map(msg => ({
+        role: msg.role,
+        content: msg.content,
+      }));
+
+      // Call the agent API
+      const response = await agentApi.processQuery({
+        query: input.trim(),
+        history,
+      });
+
+      if (response.success) {
+        const aiMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: response.answer,
+          timestamp: new Date(),
+          files: response.files,
+        };
+        setMessages(prev => [...prev, aiMessage]);
+      } else {
+        // Handle error response
+        const errorMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: response.error || 'Sorry, I encountered an error processing your request. Please try again.',
+          timestamp: new Date(),
+          error: true,
+        };
+        setMessages(prev => [...prev, errorMessage]);
+      }
+    } catch (error: any) {
+      console.error('Error sending message:', error);
+      const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: 'This is a simulated response. The AI will provide helpful information based on your question.',
+        content: 'Sorry, I couldn\'t connect to the server. Please make sure you\'re logged in and try again.',
         timestamp: new Date(),
-        attachments: [
-          {
-            type: 'link',
-            url: 'https://example.com',
-            title: 'Related Resource'
-          },
-          {
-            type: 'document',
-            url: 'https://example.com/doc.pdf',
-            title: 'Study Guide.pdf'
-          },
-          {
-            type: 'audio',
-            audioUrl: '/audio/sample.mp3',
-            title: 'Audio Explanation'
-          }
-        ]
+        error: true,
       };
-      setMessages(prev => [...prev, aiMessage]);
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
       setIsTyping(false);
-    }, 1500);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -90,18 +105,39 @@ export default function ChatPage() {
     }
   };
 
-  const toggleAudio = (audioUrl: string, messageId: string) => {
-    if (playingAudio === messageId) {
-      audioRef.current?.pause();
-      setPlayingAudio(null);
-    } else {
-      if (audioRef.current) {
-        audioRef.current.pause();
+  const handleFileDownload = async (file: FileAttachment) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        alert('Please log in to download files');
+        return;
       }
-      audioRef.current = new Audio(audioUrl);
-      audioRef.current.play();
-      setPlayingAudio(messageId);
-      audioRef.current.onended = () => setPlayingAudio(null);
+
+      // Fetch the file with authentication
+      const response = await fetch(file.downloadUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to download file');
+      }
+
+      // Get the blob and create a download link
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file.name;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      alert('Failed to download file. Please try again.');
     }
   };
 
@@ -111,7 +147,7 @@ export default function ChatPage() {
       <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--rust)]">
         <div>
           <h1 className="text-2xl font-bold text-white">AI Chat Assistant</h1>
-          <p className="text-sm text-gray-400">Ask me anything about your learning journey</p>
+          <p className="text-sm text-gray-400">Powered by Google Gemini with Google Classroom integration</p>
         </div>
       </div>
 
@@ -137,61 +173,131 @@ export default function ChatPage() {
                 </div>
               ) : (
                 <div className="max-w-[80%] space-y-3">
-                  {/* Message Content - No box */}
-                  <div className="whitespace-pre-wrap break-words text-gray-100">
-                    {message.content}
+                  {/* Message Content */}
+                  {message.error && (
+                    <div className="flex items-center gap-2 mb-2 text-red-400">
+                      <AlertCircle className="w-4 h-4" />
+                      <span className="text-sm font-semibold">Error</span>
+                    </div>
+                  )}
+                  <div className={`prose prose-invert prose-sm max-w-none ${message.error ? 'text-red-400' : 'text-gray-100'}`}>
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        // Style links
+                        a: ({ node, ...props }) => (
+                          <a
+                            {...props}
+                            className="text-[var(--rust)] hover:underline"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          />
+                        ),
+                        // Style code blocks
+                        code: ({ node, inline, ...props }: any) =>
+                          inline ? (
+                            <code
+                              {...props}
+                              className="bg-gray-800 px-1.5 py-0.5 rounded text-sm text-gray-200"
+                            />
+                          ) : (
+                            <code
+                              {...props}
+                              className="block bg-gray-800 p-3 rounded-lg text-sm text-gray-200 overflow-x-auto"
+                            />
+                          ),
+                        // Style lists
+                        ul: ({ node, ...props }) => (
+                          <ul {...props} className="list-disc list-inside space-y-1 my-2" />
+                        ),
+                        ol: ({ node, ...props }) => (
+                          <ol {...props} className="list-decimal list-inside space-y-1 my-2" />
+                        ),
+                        li: ({ node, ...props }) => (
+                          <li {...props} className="ml-0" />
+                        ),
+                        // Style headings
+                        h1: ({ node, ...props }) => (
+                          <h1 {...props} className="text-xl font-bold mt-4 mb-2 text-white" />
+                        ),
+                        h2: ({ node, ...props }) => (
+                          <h2 {...props} className="text-lg font-bold mt-3 mb-2 text-white" />
+                        ),
+                        h3: ({ node, ...props }) => (
+                          <h3 {...props} className="text-base font-bold mt-2 mb-1 text-white" />
+                        ),
+                        // Style paragraphs
+                        p: ({ node, ...props }) => (
+                          <p {...props} className="mb-3 leading-relaxed" />
+                        ),
+                        // Style blockquotes
+                        blockquote: ({ node, ...props }) => (
+                          <blockquote
+                            {...props}
+                            className="border-l-4 border-[var(--rust)] pl-4 italic my-2 text-gray-300"
+                          />
+                        ),
+                        // Style tables
+                        table: ({ node, ...props }) => (
+                          <div className="overflow-x-auto my-3">
+                            <table {...props} className="min-w-full divide-y divide-gray-700 border border-gray-700 rounded" />
+                          </div>
+                        ),
+                        thead: ({ node, ...props }) => (
+                          <thead {...props} className="bg-gray-800" />
+                        ),
+                        tbody: ({ node, ...props }) => (
+                          <tbody {...props} className="divide-y divide-gray-700 bg-gray-900" />
+                        ),
+                        tr: ({ node, ...props }) => (
+                          <tr {...props} className="hover:bg-gray-800/50" />
+                        ),
+                        th: ({ node, ...props }) => (
+                          <th {...props} className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-300" />
+                        ),
+                        td: ({ node, ...props }) => (
+                          <td {...props} className="px-4 py-2 text-sm" />
+                        ),
+                        // Style horizontal rules
+                        hr: ({ node, ...props }) => (
+                          <hr {...props} className="my-4 border-gray-700" />
+                        ),
+                        // Style strong/bold
+                        strong: ({ node, ...props }) => (
+                          <strong {...props} className="font-bold text-white" />
+                        ),
+                        // Style emphasis/italic
+                        em: ({ node, ...props }) => (
+                          <em {...props} className="italic" />
+                        ),
+                      }}
+                    >
+                      {message.content}
+                    </ReactMarkdown>
                   </div>
 
-                  {/* Attachments - With boxes */}
-                  {message.attachments && message.attachments.length > 0 && (
+                  {/* File Attachments */}
+                  {message.files && message.files.length > 0 && (
                     <div className="space-y-2">
-                      {message.attachments.map((attachment, idx) => (
-                        <div key={idx}>
-                          {attachment.type === 'link' && (
-                            <a
-                              href={attachment.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-2 p-3 bg-[var(--darker)] hover:bg-gray-800 rounded-lg transition-colors group border border-gray-800"
-                            >
-                              <LinkIcon className="w-4 h-4 text-[var(--rust)] flex-shrink-0" />
-                              <span className="text-sm text-gray-300 group-hover:text-white truncate">
-                                {attachment.title}
-                              </span>
-                            </a>
-                          )}
-
-                          {attachment.type === 'document' && (
-                            <a
-                              href={attachment.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-2 p-3 bg-[var(--darker)] hover:bg-gray-800 rounded-lg transition-colors group border border-gray-800"
-                            >
-                              <FileText className="w-4 h-4 text-[var(--rust)] flex-shrink-0" />
-                              <span className="text-sm text-gray-300 group-hover:text-white truncate">
-                                {attachment.title}
-                              </span>
-                            </a>
-                          )}
-
-                          {attachment.type === 'audio' && (
-                            <button
-                              onClick={() => toggleAudio(attachment.audioUrl!, message.id)}
-                              className="flex items-center gap-2 p-3 bg-[var(--darker)] hover:bg-gray-800 rounded-lg transition-colors group w-full border border-gray-800"
-                            >
-                              {playingAudio === message.id ? (
-                                <Pause className="w-4 h-4 text-[var(--rust)] flex-shrink-0" />
-                              ) : (
-                                <Play className="w-4 h-4 text-[var(--rust)] flex-shrink-0" />
-                              )}
-                              <Volume2 className="w-4 h-4 text-[var(--rust)] flex-shrink-0" />
-                              <span className="text-sm text-gray-300 group-hover:text-white">
-                                {attachment.title}
-                              </span>
-                            </button>
-                          )}
-                        </div>
+                      {message.files.map((file, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => handleFileDownload(file)}
+                          className="flex items-center gap-3 p-3 bg-[var(--darker)] hover:bg-gray-800 rounded-lg transition-colors group border border-gray-800 w-full text-left"
+                        >
+                          <FileText className="w-5 h-5 text-[var(--rust)] flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm text-gray-300 group-hover:text-white truncate">
+                              {file.name}
+                            </div>
+                            {file.size && (
+                              <div className="text-xs text-gray-500">
+                                {(file.size / 1024).toFixed(2)} KB
+                              </div>
+                            )}
+                          </div>
+                          <Download className="w-4 h-4 text-gray-400 group-hover:text-[var(--rust)] flex-shrink-0" />
+                        </button>
                       ))}
                     </div>
                   )}
