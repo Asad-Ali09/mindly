@@ -32,6 +32,7 @@ import {
 } from 'lucide-react'
 import { CornerPlusIcons } from '@/components/ui/corner-plus-icons'
 import { ActivityChartCard } from '@/components/ui/activity-chart-card'
+import GoogleClassroomIntegration from '@/components/GoogleClassroomIntegration'
 
 // Sample Data for Activity Chart (Weekly hours data)
 const ACTIVITY_DATA = [
@@ -252,6 +253,9 @@ export default function DashboardPage() {
 
           {/* Right Column */}
           <div className="dashboard-right-col">
+            {/* Google Classroom Integration */}
+            <GoogleClassroomIntegration />
+
             {/* Streak Card */}
             <div className="glass-card group">
               <CornerPlusIcons />

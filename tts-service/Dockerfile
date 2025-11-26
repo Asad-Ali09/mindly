@@ -35,5 +35,7 @@ EXPOSE 8001
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
 
+ENV COQUI_TTS_DISABLE_TRACKING=1
+
 # Run the application with reload enabled for development
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"]

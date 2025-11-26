@@ -1,9 +1,17 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IUser extends Document {
+  _id: string;
   name: string;
   email: string;
   password: string;
+  
+  // Google OAuth fields
+  googleId?: string;
+  googleAccessToken?: string;
+  googleRefreshToken?: string;
+  googleClassroomConnected: boolean;
+  
   createdAt: Date;
   updatedAt: Date;
 }
@@ -33,6 +41,25 @@ const userSchema = new Schema<IUser>(
       required: [true, 'Password is required'],
       minlength: [6, 'Password must be at least 6 characters long'],
       select: false, // Don't return password by default in queries
+    },
+    
+    // Google OAuth fields
+    googleId: {
+      type: String,
+      sparse: true,
+      unique: true,
+    },
+    googleAccessToken: {
+      type: String,
+      select: false, // Don't return token by default
+    },
+    googleRefreshToken: {
+      type: String,
+      select: false, // Don't return token by default
+    },
+    googleClassroomConnected: {
+      type: Boolean,
+      default: false,
     },
   },
   {

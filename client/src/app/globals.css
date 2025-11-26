@@ -362,3 +362,76 @@ input:-moz-autofill-preview {
   background-color: var(--darker) !important;
   color: var(--white) !important;
 }
+
+/* Markdown styles for chat messages */
+.prose {
+  color: #e5e7eb;
+}
+
+.prose :where(code):not(:where([class~="not-prose"] *)) {
+  color: #e5e7eb;
+  font-weight: 400;
+}
+
+.prose :where(pre):not(:where([class~="not-prose"] *)) {
+  background-color: #1f2937;
+  border-radius: 0.5rem;
+}
+
+.prose :where(a):not(:where([class~="not-prose"] *)) {
+  color: var(--rust);
+  text-decoration: none;
+}
+
+.prose :where(a):not(:where([class~="not-prose"] *)):hover {
+  text-decoration: underline;
+}
+
+.prose :where(strong):not(:where([class~="not-prose"] *)) {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.prose :where(ul):not(:where([class~="not-prose"] *)),
+.prose :where(ol):not(:where([class~="not-prose"] *)) {
+  padding-left: 0;
+}
+
+.prose :where(li):not(:where([class~="not-prose"] *)) {
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.prose :where(blockquote):not(:where([class~="not-prose"] *)) {
+  font-style: italic;
+  border-left-width: 4px;
+  border-left-color: var(--rust);
+  padding-left: 1rem;
+  color: #d1d5db;
+}
+
+.prose :where(h1, h2, h3, h4, h5, h6):not(:where([class~="not-prose"] *)) {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.prose :where(table):not(:where([class~="not-prose"] *)) {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.prose :where(th):not(:where([class~="not-prose"] *)) {
+  background-color: #1f2937;
+  font-weight: 600;
+  text-align: left;
+}
+
+.prose :where(td):not(:where([class~="not-prose"] *)),
+.prose :where(th):not(:where([class~="not-prose"] *)) {
+  padding: 0.5rem 1rem;
+  border: 1px solid #374151;
+}
+
+.prose :where(tr):not(:where([class~="not-prose"] *)):hover {
+  background-color: rgba(31, 41, 55, 0.5);
+}
