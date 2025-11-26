@@ -4,6 +4,7 @@ import userRoutes from './user.routes';
 import quizRoutes from './quiz.routes';
 import authRoutes from './auth.routes';
 import classroomRoutes from './classroom.routes';
+import agentRoutes from './agent.routes';
 
 const router = Router();
 
@@ -21,5 +22,8 @@ router.use('/auth', authRoutes);
 
 // Mount Classroom routes
 router.use('/classroom', classroomRoutes);
+
+// Mount Agent routes (ReAct Agent)
+router.use('/agent', agentRoutes);
 
 export default router;

@@ -122,18 +122,18 @@ export default function GoogleClassroomIntegration() {
               </Button>
             ) : (
               <>
-                <Button
+                {/* <Button
                   onClick={fetchCourses}
                   disabled={isLoading}
                   className="bg-rust hover:bg-rust/90 text-white"
                 >
                   {isLoading ? 'Loading...' : 'View Courses'}
-                </Button>
+                </Button> */}
                 <Button
                   onClick={handleDisconnect}
                   disabled={isLoading}
                   variant="outline"
-                  className="border-rust/40 text-white hover:bg-rust/10"
+                  className="border-rust/40 text-white bg-rust/10"
                 >
                   Disconnect
                 </Button>

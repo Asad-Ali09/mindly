@@ -1,6 +1,7 @@
 import { google } from 'googleapis';
 import User from '../models/user.model';
 import config from '../config/config';
+import { AssignmentFilters, AssignmentDetails } from '../types/agent.types';
 
 const oauth2Client = new google.auth.OAuth2(
   config.googleClientId,
@@ -252,3 +253,238 @@ export const getAllCoursework = async (userId: string) => {
     throw new Error(error.message || 'Failed to fetch all coursework');
   }
 };
+
+/**
+ * Search and filter assignments across courses
+ * Used by the ReAct agent for intelligent assignment queries
+ */
+export const searchAssignments = async (userId: string, filters: AssignmentFilters) => {
+  try {
+    const coursesResult = await getCourses(userId);
+    const courses = coursesResult.data;
+
+    if (!courses || courses.length === 0) {
+      return {
+        success: true,
+        data: [],
+      };
+    }
+
+    // Filter courses if courseId or courseName is provided
+    let targetCourses = courses;
+    if (filters.courseId) {
+      targetCourses = courses.filter((c: any) => c.id === filters.courseId);
+    } else if (filters.courseName) {
+      const lowerCourseName = filters.courseName.toLowerCase();
+      targetCourses = courses.filter((c: any) => 
+        c.name?.toLowerCase().includes(lowerCourseName)
+      );
+    }
+
+    // Fetch coursework from target courses
+    const allCoursework: any[] = [];
+    for (const course of targetCourses) {
+      try {
+        const courseworkResult = await getCoursework(userId, course.id!);
+        const courseworkWithCourse = (courseworkResult.data || []).map((work: any) => ({
+          ...work,
+          courseId: course.id,
+          courseName: course.name,
+        }));
+        allCoursework.push(...courseworkWithCourse);
+      } catch (error) {
+        console.error(`Error fetching coursework for course ${course.id}:`, error);
+      }
+    }
+
+    // Filter by due date if provided
+    let filteredWork = allCoursework;
+    if (filters.dueDateStart || filters.dueDateEnd) {
+      filteredWork = allCoursework.filter((work: any) => {
+        if (!work.dueDate) return false;
+
+        const dueDate = new Date(
+          work.dueDate.year,
+          work.dueDate.month - 1,
+          work.dueDate.day
+        );
+
+        if (filters.dueDateStart) {
+          const startDate = new Date(filters.dueDateStart);
+          if (dueDate < startDate) return false;
+        }
+
+        if (filters.dueDateEnd) {
+          const endDate = new Date(filters.dueDateEnd);
+          if (dueDate > endDate) return false;
+        }
+
+        return true;
+      });
+    }
+
+    // Filter by state if provided
+    if (filters.state) {
+      filteredWork = filteredWork.filter((work: any) => work.state === filters.state);
+    }
+
+    return {
+      success: true,
+      data: filteredWork,
+    };
+  } catch (error: any) {
+    console.error('Error searching assignments:', error);
+    throw new Error(error.message || 'Failed to search assignments');
+  }
+};
+
+/**
+ * Get detailed information about a specific assignment including submission status
+ */
+export const getAssignmentDetails = async (
+  userId: string,
+  courseId: string,
+  courseworkId: string
+): Promise<AssignmentDetails> => {
+  try {
+    const auth = await getAuthenticatedClient(userId);
+    const classroom = google.classroom({ version: 'v1', auth });
+
+    // Get coursework details
+    const courseworkResponse = await classroom.courses.courseWork.get({
+      courseId: courseId,
+      id: courseworkId,
+    });
+
+    const coursework = courseworkResponse.data;
+
+    // Get course name
+    const courseResponse = await classroom.courses.get({
+      id: courseId,
+    });
+
+    // Get submission status
+    let submissionState;
+    try {
+      const submissionsResponse = await classroom.courses.courseWork.studentSubmissions.list({
+        courseId: courseId,
+        courseWorkId: courseworkId,
+        userId: 'me',
+      });
+
+      const submission = submissionsResponse.data.studentSubmissions?.[0];
+      if (submission) {
+        submissionState = {
+          state: submission.state || 'UNKNOWN',
+          turnedInTimestamp: submission.updateTime,
+          grade: submission.assignedGrade,
+        };
+      }
+    } catch (error) {
+      console.error('Error fetching submission status:', error);
+    }
+
+    return {
+      id: coursework.id!,
+      courseId: courseId,
+      courseName: courseResponse.data.name || undefined,
+      title: coursework.title!,
+      description: coursework.description || undefined,
+      state: coursework.state!,
+      creationTime: coursework.creationTime!,
+      updateTime: coursework.updateTime!,
+      dueDate: coursework.dueDate ? {
+        year: coursework.dueDate.year || 0,
+        month: coursework.dueDate.month || 0,
+        day: coursework.dueDate.day || 0,
+      } : undefined,
+      dueTime: coursework.dueTime ? {
+        hours: coursework.dueTime.hours || 0,
+        minutes: coursework.dueTime.minutes || 0,
+      } : undefined,
+      maxPoints: coursework.maxPoints || undefined,
+      workType: coursework.workType!,
+      materials: coursework.materials as any,
+      submissionState: submissionState ? {
+        state: submissionState.state,
+        turnedInTimestamp: submissionState.turnedInTimestamp || undefined,
+        grade: submissionState.grade || undefined,
+      } : undefined,
+    };
+  } catch (error: any) {
+    console.error('Error fetching assignment details:', error);
+    throw new Error(error.message || 'Failed to fetch assignment details');
+  }
+};
+
+/**
+ * Generate temporary authenticated download URL for Google Drive files
+ * URL expires in 1 hour
+ */
+export const generateTemporaryFileUrl = async (userId: string, fileId: string) => {
+  try {
+    const auth = await getAuthenticatedClient(userId);
+    const drive = google.drive({ version: 'v3', auth });
+
+    // Get file metadata
+    const fileResponse = await drive.files.get({
+      fileId: fileId,
+      fields: 'id, name, mimeType, size, createdTime, modifiedTime, webViewLink, webContentLink, thumbnailLink, iconLink, description, owners',
+    });
+
+    const file = fileResponse.data;
+
+    // For Google Docs, Sheets, Slides - export as PDF
+    let downloadUrl: string;
+    if (file.mimeType?.includes('google-apps')) {
+      // Export Google Workspace files
+      const exportMimeType = getExportMimeType(file.mimeType);
+      downloadUrl = `https://www.googleapis.com/drive/v3/files/${fileId}/export?mimeType=${encodeURIComponent(exportMimeType)}`;
+    } else {
+      // Direct download for regular files
+      downloadUrl = file.webContentLink || `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
+    }
+
+    // Get current access token to append to download URL
+    const credentials = await auth.getAccessToken();
+    const accessToken = credentials.token;
+
+    // Create authenticated download URL (valid for token lifetime, typically 1 hour)
+    const authenticatedUrl = `${downloadUrl}&access_token=${accessToken}`;
+
+    return {
+      success: true,
+      data: {
+        id: file.id!,
+        name: file.name!,
+        mimeType: file.mimeType!,
+        size: file.size,
+        downloadUrl: authenticatedUrl,
+        webViewLink: file.webViewLink,
+        thumbnailLink: file.thumbnailLink,
+        iconLink: file.iconLink,
+        description: file.description,
+        createdTime: file.createdTime,
+        modifiedTime: file.modifiedTime,
+        owners: file.owners,
+      },
+    };
+  } catch (error: any) {
+    console.error('Error generating temporary file URL:', error);
+    throw new Error(error.message || 'Failed to generate file URL');
+  }
+};
+
+/**
+ * Helper function to determine export MIME type for Google Workspace files
+ */
+function getExportMimeType(googleMimeType: string): string {
+  const exportMap: { [key: string]: string } = {
+    'application/vnd.google-apps.document': 'application/pdf',
+    'application/vnd.google-apps.spreadsheet': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.google-apps.presentation': 'application/pdf',
+    'application/vnd.google-apps.drawing': 'application/pdf',
+  };
+  return exportMap[googleMimeType] || 'application/pdf';
+}
+

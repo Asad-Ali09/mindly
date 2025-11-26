@@ -13,6 +13,9 @@
   "license": "ISC",
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
+    "@langchain/core": "^1.1.0",
+    "@langchain/google-genai": "^2.0.0",
+    "@langchain/langgraph": "^1.0.2",
     "axios": "^1.12.2",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
@@ -20,10 +23,12 @@
     "express": "^5.1.0",
     "googleapis": "^166.0.0",
     "jsonwebtoken": "^9.0.2",
+    "langchain": "^1.1.1",
     "mongoose": "^8.19.2",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
-    "socket.io": "^4.8.1"
+    "socket.io": "^4.8.1",
+    "zod": "^4.1.13"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
