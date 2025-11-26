@@ -4,70 +4,27 @@ import { promises as fs } from 'fs';
 import { existsSync } from 'fs';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { randomBytes } from 'crypto';
+import cloudinaryService from '../services/cloudinary.service';
+import Document from '../models/document.model';
+import { IUser } from '../models/user.model';
 
 const execAsync = promisify(exec);
 
-interface DocumentMetadata {
-  id: string;
-  fileName: string;
-  fileSize: number;
-  fileType: 'pdf' | 'pptx' | 'image';
-  fileUrl?: string;
-  images?: string[];
-  createdAt: string;
-}
-
 class DocumentController {
-  private uploadDir: string;
-  private metadataDir: string;
-
-  constructor() {
-    // Use process.cwd() for better compatibility
-    this.uploadDir = path.join(process.cwd(), 'uploads');
-    this.metadataDir = path.join(process.cwd(), 'uploads', 'metadata');
-    this.ensureUploadDir();
-  }
-
-  private async ensureUploadDir() {
-    if (!existsSync(this.uploadDir)) {
-      await fs.mkdir(this.uploadDir, { recursive: true });
-    }
-    if (!existsSync(this.metadataDir)) {
-      await fs.mkdir(this.metadataDir, { recursive: true });
-    }
-  }
-
-  private generateDocumentId(): string {
-    return randomBytes(16).toString('hex');
-  }
-
-  private async saveDocumentMetadata(metadata: DocumentMetadata): Promise<void> {
-    const metadataPath = path.join(this.metadataDir, `${metadata.id}.json`);
-    await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2));
-    // Ensure the file is written to disk before continuing
-    const fileHandle = await fs.open(metadataPath, 'r+');
-    await fileHandle.sync();
-    await fileHandle.close();
-  }
-
-  private async getDocumentMetadata(id: string): Promise<DocumentMetadata | null> {
-    try {
-      const metadataPath = path.join(this.metadataDir, `${id}.json`);
-      const data = await fs.readFile(metadataPath, 'utf-8');
-      return JSON.parse(data);
-    } catch (error) {
-      return null;
-    }
-  }
-
   /**
    * Upload and process document (PDF, PPTX, or Images)
    */
   uploadDocument = async (req: Request, res: Response) => {
     try {
       const file = (req as any).file;
-      const fileType = req.body.fileType;
+      const user = req.user as IUser;
+
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required'
+        });
+      }
 
       if (!file) {
         return res.status(400).json({
@@ -88,58 +45,107 @@ class DocumentController {
       ];
       
       if (!allowedTypes.includes(file.mimetype)) {
-        await fs.unlink(file.path);
         return res.status(400).json({
           success: false,
           message: 'Invalid file type. Only PDF, PPTX, and images (PNG, JPG, GIF, WebP) are allowed.'
         });
       }
 
+      const userId = (user._id as any).toString();
+      
       // Handle image files (PNG, JPG, etc.)
       if (file.mimetype.startsWith('image/')) {
-        const documentId = this.generateDocumentId();
-        const imageUrl = `/uploads/${file.filename}`;
-        
-        const metadata: DocumentMetadata = {
-          id: documentId,
+        const uploadResult = await cloudinaryService.uploadBuffer(
+          file.buffer,
+          userId,
+          file.originalname,
+          { resourceType: 'image' }
+        );
+
+        const document = await Document.create({
+          userId: user._id as any,
           fileName: file.originalname,
           fileSize: file.size,
           fileType: 'image',
-          images: [imageUrl],
-          createdAt: new Date().toISOString()
-        };
-        
-        await this.saveDocumentMetadata(metadata);
+          mimeType: file.mimetype,
+          cloudinaryPublicId: uploadResult.public_id,
+          cloudinaryUrl: uploadResult.secure_url,
+          cloudinaryFolder: uploadResult.folder || `mindly/users/${userId}/documents`,
+          thumbnailUrl: cloudinaryService.generateThumbnail(uploadResult.public_id),
+          pageImages: [uploadResult.secure_url],
+          metadata: {
+            width: uploadResult.width,
+            height: uploadResult.height,
+            format: uploadResult.format,
+          },
+        });
         
         return res.status(200).json({
           success: true,
-          data: metadata
+          data: document
         });
       }
 
-      // Handle PDF files - convert to images but keep original file
-      if (fileType === 'pdf' || file.mimetype === 'application/pdf') {
+      // Handle PDF files - convert to images and upload to Cloudinary
+      if (file.mimetype === 'application/pdf') {
         try {
-          const documentId = this.generateDocumentId();
-          const images = await this.convertPdfToImages(file.path, file.filename);
-          const pdfUrl = `/uploads/${file.filename}`;
+          // Save PDF temporarily for conversion
+          const tempDir = path.join(process.cwd(), 'temp');
+          if (!existsSync(tempDir)) {
+            await fs.mkdir(tempDir, { recursive: true });
+          }
+
+          const tempFilePath = path.join(tempDir, `${Date.now()}-${file.originalname}`);
+          await fs.writeFile(tempFilePath, file.buffer);
+
+          // Upload original PDF to Cloudinary as raw file (not image) so it can be viewed in iframe
+          const pdfUploadResult = await cloudinaryService.uploadBuffer(
+            file.buffer,
+            userId,
+            file.originalname,
+            { resourceType: 'raw' }
+          );
+
+          // Convert PDF to images
+          const imageBuffers = await this.convertPdfToImageBuffers(tempFilePath);
           
-          const metadata: DocumentMetadata = {
-            id: documentId,
+          // Create document in database first to get ID
+          const document = await Document.create({
+            userId: user._id as any,
             fileName: file.originalname,
             fileSize: file.size,
             fileType: 'pdf',
-            fileUrl: pdfUrl,
-            images,
-            createdAt: new Date().toISOString()
-          };
+            mimeType: file.mimetype,
+            cloudinaryPublicId: pdfUploadResult.public_id,
+            cloudinaryUrl: pdfUploadResult.secure_url,
+            cloudinaryFolder: pdfUploadResult.folder || `mindly/users/${userId}/documents`,
+            pageImages: [],
+            metadata: {
+              pageCount: imageBuffers.length,
+            },
+          });
+
+          // Upload page images to Cloudinary
+          const pageUploadResults = await cloudinaryService.uploadMultipleBuffers(
+            imageBuffers,
+            userId,
+            (document._id as any).toString(),
+            'page'
+          );
+
+          // Update document with page image URLs and thumbnail from first page
+          document.pageImages = pageUploadResults.map(result => result.secure_url);
+          document.thumbnailUrl = pageUploadResults.length > 0 
+            ? cloudinaryService.generateThumbnail(pageUploadResults[0].public_id)
+            : undefined;
+          await document.save();
+
+          // Clean up temp file
+          await fs.unlink(tempFilePath);
           
-          await this.saveDocumentMetadata(metadata);
-          
-          // Keep original PDF file for browser viewer option
           return res.status(200).json({
             success: true,
-            data: metadata
+            data: document
           });
         } catch (error) {
           console.error('Error converting PDF:', error);
@@ -150,45 +156,72 @@ class DocumentController {
         }
       }
 
-      // Handle PPTX files - convert to images via PDF and keep PDF for browser viewer
-      if (fileType === 'pptx' || file.mimetype === 'application/vnd.openxmlformats-officedocument.presentationml.presentation') {
+      // Handle PPTX files - convert to PDF, then images, upload to Cloudinary
+      if (file.mimetype === 'application/vnd.openxmlformats-officedocument.presentationml.presentation') {
         try {
-          const documentId = this.generateDocumentId();
-          // Convert PPTX to PDF first
-          const pdfUrl = await this.convertPptxToPdf(file.path, file.filename);
-          
-          // Then convert PDF pages to images
-          const outputDir = path.join(this.uploadDir, 'converted', path.parse(file.filename).name);
-          const files = await fs.readdir(path.join(this.uploadDir, 'converted'));
-          const baseName = path.parse(file.filename).name;
-          const pdfFile = files.find(f => f.startsWith(baseName) && f.endsWith('.pdf'));
-          
-          if (pdfFile) {
-            const pdfPath = path.join(this.uploadDir, 'converted', pdfFile);
-            const images = await this.convertPdfToImages(pdfPath, pdfFile);
-            
-            // Delete original PPTX after conversion
-            await fs.unlink(file.path);
-            
-            const metadata: DocumentMetadata = {
-              id: documentId,
-              fileName: file.originalname,
-              fileSize: file.size,
-              fileType: 'pptx',
-              fileUrl: pdfUrl,
-              images,
-              createdAt: new Date().toISOString()
-            };
-            
-            await this.saveDocumentMetadata(metadata);
-            
-            return res.status(200).json({
-              success: true,
-              data: metadata
-            });
+          // Save PPTX temporarily for conversion
+          const tempDir = path.join(process.cwd(), 'temp');
+          if (!existsSync(tempDir)) {
+            await fs.mkdir(tempDir, { recursive: true });
           }
+
+          const tempPptxPath = path.join(tempDir, `${Date.now()}-${file.originalname}`);
+          await fs.writeFile(tempPptxPath, file.buffer);
+
+          // Convert PPTX to PDF
+          const pdfPath = await this.convertPptxToPdf(tempPptxPath);
+          const pdfBuffer = await fs.readFile(pdfPath);
+
+          // Upload PDF to Cloudinary as raw file so it can be viewed in iframe
+          const pdfUploadResult = await cloudinaryService.uploadBuffer(
+            pdfBuffer,
+            userId,
+            file.originalname.replace(/\.pptx$/i, '.pdf'),
+            { resourceType: 'raw' }
+          );
+
+          // Convert PDF to images
+          const imageBuffers = await this.convertPdfToImageBuffers(pdfPath);
           
-          throw new Error('PDF conversion failed');
+          // Create document in database first to get ID
+          const document = await Document.create({
+            userId: user._id as any,
+            fileName: file.originalname,
+            fileSize: file.size,
+            fileType: 'pptx',
+            mimeType: file.mimetype,
+            cloudinaryPublicId: pdfUploadResult.public_id,
+            cloudinaryUrl: pdfUploadResult.secure_url,
+            cloudinaryFolder: pdfUploadResult.folder || `mindly/users/${userId}/documents`,
+            pageImages: [],
+            metadata: {
+              pageCount: imageBuffers.length,
+            },
+          });
+
+          // Upload page images to Cloudinary
+          const pageUploadResults = await cloudinaryService.uploadMultipleBuffers(
+            imageBuffers,
+            userId,
+            (document._id as any).toString(),
+            'page'
+          );
+
+          // Update document with page image URLs and thumbnail from first page
+          document.pageImages = pageUploadResults.map(result => result.secure_url);
+          document.thumbnailUrl = pageUploadResults.length > 0 
+            ? cloudinaryService.generateThumbnail(pageUploadResults[0].public_id)
+            : undefined;
+          await document.save();
+
+          // Clean up temp files
+          await fs.unlink(tempPptxPath);
+          await fs.unlink(pdfPath);
+          
+          return res.status(200).json({
+            success: true,
+            data: document
+          });
         } catch (error) {
           console.error('Error converting PPTX:', error);
           return res.status(500).json({
@@ -218,6 +251,7 @@ class DocumentController {
   getDocument = async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
+      const user = req.user as IUser | undefined;
       
       if (!id) {
         return res.status(400).json({
@@ -226,18 +260,30 @@ class DocumentController {
         });
       }
       
-      const metadata = await this.getDocumentMetadata(id);
+      const document = await Document.findById(id);
       
-      if (!metadata) {
+      if (!document) {
         return res.status(404).json({
           success: false,
           message: 'Document not found'
         });
       }
+
+      // Check if user has access to this document
+      // Document is accessible if: it's public OR user owns it
+      const isOwner = user && document.userId.toString() === (user._id as any).toString();
+      const isPublic = document.isPublic;
+
+      if (!isPublic && !isOwner) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied'
+        });
+      }
       
       return res.status(200).json({
         success: true,
-        data: metadata
+        data: document
       });
     } catch (error) {
       console.error('Error fetching document:', error);
@@ -249,11 +295,169 @@ class DocumentController {
   };
 
   /**
-   * Convert PDF to images (one per page)
+   * Get all documents for the authenticated user
    */
-  private async convertPdfToImages(filePath: string, filename: string): Promise<string[]> {
+  getUserDocuments = async (req: Request, res: Response) => {
     try {
-      const outputDir = path.join(this.uploadDir, 'converted', path.parse(filename).name);
+      const user = req.user as IUser;
+
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required'
+        });
+      }
+
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const skip = (page - 1) * limit;
+
+      const documents = await Document.find({ userId: user._id as any })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit);
+
+      const total = await Document.countDocuments({ userId: user._id as any });
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          documents,
+          pagination: {
+            page,
+            limit,
+            total,
+            pages: Math.ceil(total / limit),
+          },
+        },
+      });
+    } catch (error) {
+      console.error('Error fetching user documents:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to fetch documents'
+      });
+    }
+  };
+
+  /**
+   * Delete document
+   */
+  deleteDocument = async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const user = req.user as IUser;
+
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required'
+        });
+      }
+
+      const document = await Document.findById(id);
+
+      if (!document) {
+        return res.status(404).json({
+          success: false,
+          message: 'Document not found'
+        });
+      }
+
+      // Verify user owns the document
+      if (document.userId.toString() !== (user._id as any).toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied'
+        });
+      }
+
+      // Delete from Cloudinary
+      try {
+        // Delete main file
+        await cloudinaryService.deleteFile(document.cloudinaryPublicId, 'image');
+
+        // Delete page images folder if exists
+        if (document.pageImages && document.pageImages.length > 0) {
+          const folderPath = `mindly/users/${(user._id as any)}/documents/${(document._id as any)}/pages`;
+          await cloudinaryService.deleteFolder(folderPath);
+        }
+      } catch (cloudinaryError) {
+        console.error('Error deleting from Cloudinary:', cloudinaryError);
+        // Continue with database deletion even if Cloudinary deletion fails
+      }
+
+      // Delete from database
+      await Document.findByIdAndDelete(id);
+
+      return res.status(200).json({
+        success: true,
+        message: 'Document deleted successfully'
+      });
+    } catch (error) {
+      console.error('Error deleting document:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to delete document'
+      });
+    }
+  };
+
+  /**
+   * Toggle document visibility (public/private)
+   */
+  toggleDocumentVisibility = async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { isPublic } = req.body;
+      const user = req.user as IUser;
+
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required'
+        });
+      }
+
+      const document = await Document.findById(id);
+
+      if (!document) {
+        return res.status(404).json({
+          success: false,
+          message: 'Document not found'
+        });
+      }
+
+      // Verify user owns the document
+      if (document.userId.toString() !== (user._id as any).toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied'
+        });
+      }
+
+      document.isPublic = isPublic;
+      await document.save();
+
+      return res.status(200).json({
+        success: true,
+        data: document
+      });
+    } catch (error) {
+      console.error('Error updating document visibility:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to update document visibility'
+      });
+    }
+  };
+
+  /**
+   * Convert PDF to image buffers (one per page)
+   */
+  private async convertPdfToImageBuffers(filePath: string): Promise<Buffer[]> {
+    try {
+      const outputDir = path.join(process.cwd(), 'temp', 'pdf-conversion', Date.now().toString());
       await fs.mkdir(outputDir, { recursive: true });
 
       // Try pdf-poppler (best quality)
@@ -270,22 +474,31 @@ class DocumentController {
 
         await pdfPoppler.convert(filePath, opts);
 
-        // Get list of generated images
+        // Read generated images as buffers
         const files = await fs.readdir(outputDir);
-        const images = files
+        const imageFiles = files
           .filter(f => f.startsWith('page') && f.endsWith('.png'))
           .sort((a, b) => {
             const numA = parseInt(a.match(/\d+/)?.[0] || '0');
             const numB = parseInt(b.match(/\d+/)?.[0] || '0');
             return numA - numB;
-          })
-          .map(f => `/uploads/converted/${path.parse(filename).name}/${f}`);
+          });
 
-        if (images.length === 0) {
+        if (imageFiles.length === 0) {
           throw new Error('No images generated from PDF');
         }
 
-        return images;
+        const buffers: Buffer[] = [];
+        for (const imageFile of imageFiles) {
+          const imagePath = path.join(outputDir, imageFile);
+          const buffer = await fs.readFile(imagePath);
+          buffers.push(buffer);
+        }
+
+        // Clean up temp directory
+        await fs.rm(outputDir, { recursive: true, force: true });
+
+        return buffers;
       } catch (popplerError) {
         console.warn('pdf-poppler not available or failed:', popplerError);
         throw new Error('PDF conversion failed. Install pdf-poppler: npm install pdf-poppler');
@@ -299,9 +512,9 @@ class DocumentController {
   /**
    * Convert PPTX to PDF using LibreOffice
    */
-  private async convertPptxToPdf(filePath: string, filename: string): Promise<string> {
+  private async convertPptxToPdf(filePath: string): Promise<string> {
     try {
-      const outputDir = path.join(this.uploadDir, 'converted');
+      const outputDir = path.join(process.cwd(), 'temp', 'pptx-conversion');
       await fs.mkdir(outputDir, { recursive: true });
 
       // Try common LibreOffice paths
@@ -331,45 +544,19 @@ class DocumentController {
 
       // Find the generated PDF
       const files = await fs.readdir(outputDir);
-      const baseName = path.parse(filename).name;
+      const baseName = path.parse(path.basename(filePath)).name;
       const pdfFile = files.find(f => f.startsWith(baseName) && f.endsWith('.pdf'));
       
       if (!pdfFile) {
         throw new Error('PDF conversion failed - no PDF file generated');
       }
 
-      // Return the URL path
-      return `/uploads/converted/${pdfFile}`;
+      return path.join(outputDir, pdfFile);
     } catch (error) {
       console.error('Error converting PPTX to PDF:', error);
       throw new Error('Failed to convert PPTX to PDF');
     }
   }
-
-  /**
-   * Delete uploaded document
-   */
-  deleteDocument = async (req: Request, res: Response) => {
-    try {
-      const { filename } = req.params;
-      const filePath = path.join(this.uploadDir, filename);
-
-      if (existsSync(filePath)) {
-        await fs.unlink(filePath);
-      }
-
-      return res.status(200).json({
-        success: true,
-        message: 'Document deleted successfully'
-      });
-    } catch (error) {
-      console.error('Error deleting document:', error);
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to delete document'
-      });
-    }
-  };
 }
 
 export default new DocumentController();

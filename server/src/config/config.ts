@@ -10,6 +10,11 @@ const config = {
   TTS_SERVICE_URL: process.env.TTS_SERVICE_URL || 'http://localhost:8001',
   mongoUri: process.env.MONGO_URI || 'mongodb://localhost:27017/surge-ai',
   jwtSecret: process.env.JWT_SECRET || 'your-secret-key-change-in-production',
+  cloudinary: {
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME || '',
+    apiKey: process.env.CLOUDINARY_API_KEY || '',
+    apiSecret: process.env.CLOUDINARY_API_SECRET || '',
+  },
 };
 
 export default config;

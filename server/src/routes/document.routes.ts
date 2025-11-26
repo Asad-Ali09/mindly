@@ -1,18 +1,11 @@
 import { Router } from 'express';
 import documentController from '../controllers/document.controller';
 import multer from 'multer';
-import path from 'path';
+import { authMiddleware, optionalAuthMiddleware } from '../middlewares/auth.middleware';
 
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, path.join(process.cwd(), 'uploads'));
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + '-' + file.originalname);
-  }
-});
+// Configure multer for file uploads using memory storage
+// Files will be uploaded to Cloudinary from memory instead of disk
+const storage = multer.memoryStorage();
 
 const upload = multer({
   storage,
@@ -41,13 +34,19 @@ const router = Router();
 
 console.log('📄 Document routes initialized');
 
-// POST /api/documents/upload - Upload document (PDF or PPTX)
-router.post('/upload', upload.single('file'), documentController.uploadDocument.bind(documentController));
+// POST /api/documents/upload - Upload document (requires authentication)
+router.post('/upload', authMiddleware, upload.single('file'), documentController.uploadDocument.bind(documentController));
 
-// GET /api/documents/:id - Get document by ID
-router.get('/:id', documentController.getDocument.bind(documentController));
+// GET /api/documents - Get all documents for authenticated user
+router.get('/', authMiddleware, documentController.getUserDocuments.bind(documentController));
 
-// DELETE /api/documents/:filename - Delete uploaded document
-router.delete('/:filename', documentController.deleteDocument.bind(documentController));
+// GET /api/documents/:id - Get document by ID (optional auth - checks ownership or public status)
+router.get('/:id', optionalAuthMiddleware, documentController.getDocument.bind(documentController));
+
+// PATCH /api/documents/:id/visibility - Toggle document visibility (requires authentication)
+router.patch('/:id/visibility', authMiddleware, documentController.toggleDocumentVisibility.bind(documentController));
+
+// DELETE /api/documents/:id - Delete document (requires authentication)
+router.delete('/:id', authMiddleware, documentController.deleteDocument.bind(documentController));
 
 export default router;

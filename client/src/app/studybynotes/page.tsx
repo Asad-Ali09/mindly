@@ -56,22 +56,29 @@ const StudyByNotesPage = () => {
       const response = await documentApi.uploadDocument(file, type);
       
       // Store document data in sessionStorage before redirect
-      if (response.data.id) {
-        // Convert URLs to absolute before storing
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-        const baseUrl = apiUrl.replace(/\/api$/, '');
-        
+      if (response.data._id) {
+        // Cloudinary URLs are already absolute, no need to prepend base URL
         const documentData = {
-          ...response.data,
-          fileUrl: response.data.fileUrl ? `${baseUrl}${response.data.fileUrl}` : undefined,
-          images: response.data.images?.map(img => `${baseUrl}${img}`) || []
+          _id: response.data._id,
+          fileName: response.data.fileName,
+          fileSize: response.data.fileSize,
+          fileType: response.data.fileType,
+          cloudinaryUrl: response.data.cloudinaryUrl,
+          pageImages: response.data.pageImages || [],
+          thumbnailUrl: response.data.thumbnailUrl,
+          isPublic: response.data.isPublic,
+          createdAt: response.data.createdAt,
+          // Legacy fields for backward compatibility
+          id: response.data._id,
+          fileUrl: response.data.cloudinaryUrl,
+          images: response.data.pageImages || [],
         };
         
         // Store in sessionStorage
-        sessionStorage.setItem(`document_${response.data.id}`, JSON.stringify(documentData));
+        sessionStorage.setItem(`document_${response.data._id}`, JSON.stringify(documentData));
         
         // Redirect to document page
-        router.push(`/document/${response.data.id}`);
+        router.push(`/document/${response.data._id}`);
       }
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || err.message || 'Failed to upload file. Please try again.';

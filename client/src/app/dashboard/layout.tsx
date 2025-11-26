@@ -42,6 +42,7 @@ function Sidebar() {
   
   const menuItems = [
     { icon: BarChart3Icon, label: 'Analytics', href: '/dashboard' },
+    { icon: FileTextIcon, label: 'Your Documents', href: '/dashboard/documents' },
     { icon: NotebookIcon, label: 'Quizzes', href: '/dashboard/quizzes' },
     { icon: GraduationCapIcon, label: 'Lessons', href: '/dashboard/lessons' },
   ]

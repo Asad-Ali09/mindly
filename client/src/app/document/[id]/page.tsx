@@ -11,12 +11,20 @@ import { documentApi } from '@/api';
 type FileType = 'pdf' | 'pptx' | 'image' | null;
 
 interface DocumentData {
-  id: string;
+  // Support both old and new formats for backward compatibility
+  id?: string;
+  _id?: string;
   fileName: string;
   fileSize: number;
   fileType: FileType;
+  // Old format
   fileUrl?: string;
   images?: string[];
+  // New format
+  cloudinaryUrl?: string;
+  pageImages?: string[];
+  thumbnailUrl?: string;
+  isPublic?: boolean;
   createdAt: string;
 }
 
@@ -108,14 +116,21 @@ const DocumentViewPage = () => {
           
           if (!isMounted) return;
           
-          // Convert relative URLs to absolute URLs
-          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-          const baseUrl = apiUrl.replace(/\/api$/, '');
-          
-          const data = {
-            ...response.data,
-            fileUrl: response.data.fileUrl ? `${baseUrl}${response.data.fileUrl}` : undefined,
-            images: response.data.images?.map(img => `${baseUrl}${img}`) || []
+          // Cloudinary URLs are already absolute, no need to prepend base URL
+          const data: DocumentData = {
+            _id: response.data._id,
+            id: response.data._id, // Backward compatibility
+            fileName: response.data.fileName,
+            fileSize: response.data.fileSize,
+            fileType: response.data.fileType as FileType,
+            cloudinaryUrl: response.data.cloudinaryUrl,
+            pageImages: response.data.pageImages || [],
+            thumbnailUrl: response.data.thumbnailUrl,
+            isPublic: response.data.isPublic,
+            createdAt: response.data.createdAt,
+            // Legacy fields for backward compatibility
+            fileUrl: response.data.cloudinaryUrl,
+            images: response.data.pageImages || [],
           };
           
           setDocumentData(data);
@@ -203,7 +218,7 @@ const DocumentViewPage = () => {
             </Link>
             
             {/* View Mode Toggle */}
-            {documentData.fileUrl && (
+            {(documentData.pageImages || documentData.images) && (documentData.pageImages?.length || documentData.images?.length || 0) > 1 && (
               <div className="flex items-center gap-2 border-l border-[#bf3a0d]/30 pl-4">
                 <span className="text-[#ffffff]/70 text-sm">View:</span>
                 <button
@@ -224,7 +239,7 @@ const DocumentViewPage = () => {
                       : 'bg-[#141712] text-[#ffffff]/70 hover:text-[#ffffff]'
                   }`}
                 >
-                  Browser Viewer
+                  PDF Viewer
                 </button>
               </div>
             )}
@@ -311,13 +326,30 @@ const DocumentViewPage = () => {
         >
           {/* Document Display */}
           <div className="flex-1 overflow-hidden flex flex-col">
-            {viewMode === 'browser' && documentData.fileUrl ? (
+            {viewMode === 'browser' && (documentData.cloudinaryUrl || documentData.fileUrl) && (documentData.fileType === 'pdf' || documentData.fileType === 'pptx') ? (
               <div className="flex-1 w-full">
                 <iframe
-                  src={`${documentData.fileUrl}#page=${currentPdfPage}`}
+                  src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/proxy/pdf?url=${encodeURIComponent(documentData.cloudinaryUrl || documentData.fileUrl || '')}`}
                   className="w-full h-full border-0"
                   title="PDF Viewer"
                 />
+              </div>
+            ) : viewMode === 'browser' && (documentData.pageImages || documentData.images) && (documentData.pageImages?.length || documentData.images?.length || 0) > 0 ? (
+              <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-100 p-4">
+                <div className="max-w-4xl mx-auto space-y-4">
+                  {(documentData.pageImages || documentData.images || []).map((imageUrl, index) => (
+                    <div key={index} className="bg-white shadow-lg rounded-lg overflow-hidden">
+                      <img
+                        src={imageUrl}
+                        alt={`Page ${index + 1}`}
+                        className="w-full h-auto"
+                      />
+                      <div className="px-4 py-2 bg-gray-50 text-sm text-gray-600 text-center">
+                        Page {index + 1} of {(documentData.pageImages || documentData.images || []).length}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             ) : documentData.images && documentData.images.length > 0 ? (
               <div className="flex-1 flex justify-center items-start p-4 overflow-y-auto overflow-x-hidden bg-gray-100">
