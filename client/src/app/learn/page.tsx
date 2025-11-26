@@ -181,6 +181,30 @@ const LearnPage = () => {
             </button>
           </form>
 
+          {/* Divider */}
+          <div className="relative my-8">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-[#ffffff]/10"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-4 bg-[#0A0B09] text-[#ffffff]/50">or</span>
+            </div>
+          </div>
+
+          {/* Upload Document Option */}
+          <Link href="/studybynotes">
+            <button
+              type="button"
+              disabled={isLoading}
+              className="w-full cursor-pointer py-4 px-6 bg-[#141712] text-[#ffffff] text-lg font-semibold rounded-xl border-2 border-[#bf3a0d]/30 hover:border-[#bf3a0d] hover:bg-[#bf3a0d]/10 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-3"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              Upload Your Own Document
+            </button>
+          </Link>
+
           {/* Suggestions - Continue with these topics */}
           <div className="mt-8">
             <div className="flex items-center justify-between mb-4">

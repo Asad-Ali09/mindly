@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import { createServer } from 'http';
+import path from 'path';
 import config from './config/config';
 import routes from './routes';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler';
@@ -18,6 +19,9 @@ app.use(cors({
 
 
 app.use(express.json());
+
+// Serve uploaded files statically
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // Initialize Socket.IO
 initializeSocket(httpServer);
