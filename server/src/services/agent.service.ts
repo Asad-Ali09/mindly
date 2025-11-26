@@ -25,6 +25,154 @@ class AgentService {
   }
 
   /**
+   * Process a user query using the ReAct agent with streaming
+   * @param userId - The user's MongoDB ID
+   * @param query - The user's question or request
+   * @param history - Optional conversation history from client
+   * @param onChunk - Callback function to handle each streaming chunk
+   */
+  async processQueryStream(
+    userId: string,
+    query: string,
+    history: ConversationMessage[] = [],
+    onChunk: (chunk: any) => void
+  ): Promise<void> {
+    try {
+      console.log('Agent service: Starting stream processing for user:', userId);
+      
+      // Create tools with user context
+      const classroomTools = createAllClassroomTools(userId);
+      const driveTools = createAllDriveTools(userId);
+      const allTools = [...classroomTools, ...driveTools];
+
+      console.log('Agent service: Created', allTools.length, 'tools');
+
+      // Create the ReAct agent with streaming enabled
+      const agent = createReactAgent({
+        llm: this.model,
+        tools: allTools,
+      });
+
+      console.log('Agent service: Agent created');
+
+      // Convert conversation history to LangChain message format
+      const messages: BaseMessage[] = [];
+      
+      // Add system message with current date context
+      const systemPrompt = `You are a helpful AI assistant that helps students manage their Google Classroom coursework and materials.
+Current date: ${new Date().toISOString().split('T')[0]} (YYYY-MM-DD)
+
+Guidelines:
+1. When users ask about dates like "tomorrow" or "this week", calculate the actual dates
+2. For date-based queries, use ISO format (YYYY-MM-DD) in tool parameters
+3. When mentioning files or materials with download capabilities, ALWAYS use generate_download_url tool to create downloadable links
+4. Extract and organize file information clearly in your response
+5. Be conversational and helpful, explain what you found
+6. If you need to search for something, start by listing courses to find the right course ID
+7. For course-specific queries, first search for the course by name if you don't have the ID
+8. When presenting assignments, include: title, due date, submission status if available
+9. When presenting files, mention their names and that they can be downloaded via the provided backend URL
+
+Important: When you find files that users might want to access (from assignments, materials, or announcements), 
+proactively use the generate_download_url or batch_generate_download_urls tool to create download links for them.
+The download URLs are backend endpoints that will be authenticated with the user's JWT token on the frontend.`;
+
+      messages.push(new HumanMessage(systemPrompt));
+
+      // Add conversation history
+      for (const msg of history) {
+        if (msg.role === 'user') {
+          messages.push(new HumanMessage(msg.content));
+        } else {
+          messages.push(new AIMessage(msg.content));
+        }
+      }
+
+      // Add current query
+      messages.push(new HumanMessage(query));
+
+      console.log('Agent service: Starting agent stream with', messages.length, 'messages');
+
+      // Execute the agent with streaming using streamEvents for token-level streaming
+      const stream = agent.streamEvents(
+        { messages },
+        { version: 'v2' }
+      );
+
+      console.log('Agent service: Stream started');
+
+      let fullAnswer = '';
+      const allMessages: BaseMessage[] = [];
+      let chunkCount = 0;
+
+      for await (const event of stream) {
+        chunkCount++;
+        
+        // Handle streaming tokens from the LLM
+        if (event.event === 'on_chat_model_stream') {
+          const chunk = event.data?.chunk;
+          if (chunk && 'content' in chunk && typeof chunk.content === 'string' && chunk.content) {
+            console.log('Agent service: Streaming token chunk:', chunk.content);
+            
+            fullAnswer += chunk.content;
+            
+            onChunk({
+              type: 'content',
+              content: chunk.content,
+            });
+          }
+        }
+        
+        // Handle tool calls
+        if (event.event === 'on_tool_start') {
+          const toolName = event.name;
+          const toolInput = event.data?.input;
+          
+          console.log('Agent service: Tool call:', toolName);
+          
+          onChunk({
+            type: 'thinking',
+            action: toolName,
+            args: toolInput,
+          });
+        }
+        
+        // Collect all messages for file extraction
+        if (event.event === 'on_chat_model_end' || event.event === 'on_tool_end') {
+          const output = event.data?.output;
+          if (output && typeof output === 'object' && 'messages' in output) {
+            const msgs = output.messages as BaseMessage[];
+            if (Array.isArray(msgs)) {
+              allMessages.push(...msgs);
+            }
+          }
+        }
+      }
+
+      console.log('Agent service: Stream iteration complete. Total chunks:', chunkCount, 'Total content length:', fullAnswer.length);
+
+      // Extract file attachments from all messages
+      const files = this.extractFileAttachments(allMessages);
+
+      console.log('Agent service: Extracted', files.length, 'files');
+
+      // Send files if any
+      if (files.length > 0) {
+        onChunk({
+          type: 'files',
+          files,
+        });
+      }
+
+      console.log('Agent service: Stream processing complete');
+
+    } catch (error: any) {
+      console.error('Error in agent query streaming:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Process a user query using the ReAct agent
    * @param userId - The user's MongoDB ID
    * @param query - The user's question or request

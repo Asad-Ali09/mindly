@@ -50,6 +50,16 @@ export default function ChatPage() {
     setInput('');
     setIsTyping(true);
 
+    // Create a placeholder AI message for streaming
+    const aiMessageId = (Date.now() + 1).toString();
+    const aiMessage: Message = {
+      id: aiMessageId,
+      role: 'assistant',
+      content: '',
+      timestamp: new Date(),
+    };
+    setMessages(prev => [...prev, aiMessage]);
+
     try {
       // Build conversation history for context
       const history: ConversationMessage[] = messages.map(msg => ({
@@ -57,42 +67,83 @@ export default function ChatPage() {
         content: msg.content,
       }));
 
-      // Call the agent API
-      const response = await agentApi.processQuery({
-        query: input.trim(),
-        history,
-      });
+      let streamedContent = '';
+      let streamedFiles: FileAttachment[] = [];
 
-      if (response.success) {
-        const aiMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          role: 'assistant',
-          content: response.answer,
-          timestamp: new Date(),
-          files: response.files,
-        };
-        setMessages(prev => [...prev, aiMessage]);
-      } else {
-        // Handle error response
-        const errorMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          role: 'assistant',
-          content: response.error || 'Sorry, I encountered an error processing your request. Please try again.',
-          timestamp: new Date(),
-          error: true,
-        };
-        setMessages(prev => [...prev, errorMessage]);
+      console.log('Starting stream with query:', input.trim());
+
+      // Call the streaming agent API
+      await agentApi.processQueryStream(
+        {
+          query: input.trim(),
+          history,
+        },
+        (chunk) => {
+          console.log('Received chunk:', chunk);
+          
+          if (chunk.type === 'content') {
+            // Append new content
+            streamedContent += chunk.content;
+            setMessages(prev =>
+              prev.map(msg =>
+                msg.id === aiMessageId
+                  ? { ...msg, content: streamedContent }
+                  : msg
+              )
+            );
+          } else if (chunk.type === 'files' && chunk.files) {
+            // Add files to the message
+            streamedFiles = chunk.files;
+            setMessages(prev =>
+              prev.map(msg =>
+                msg.id === aiMessageId
+                  ? { ...msg, files: streamedFiles }
+                  : msg
+              )
+            );
+          } else if (chunk.type === 'thinking') {
+            // Optionally handle thinking indicator
+            // You could show "Thinking..." or tool being used
+            console.log('Agent thinking:', chunk.action);
+          } else if (chunk.type === 'error') {
+            throw new Error(chunk.error || 'Unknown error');
+          }
+        }
+      );
+
+      console.log('Stream completed. Content length:', streamedContent.length);
+
+      // If no content was streamed, show error
+      if (!streamedContent) {
+        setMessages(prev =>
+          prev.map(msg =>
+            msg.id === aiMessageId
+              ? { 
+                  ...msg, 
+                  content: 'Sorry, I encountered an error processing your request. Please try again.',
+                  error: true 
+                }
+              : msg
+          )
+        );
       }
     } catch (error: any) {
       console.error('Error sending message:', error);
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: 'Sorry, I couldn\'t connect to the server. Please make sure you\'re logged in and try again.',
-        timestamp: new Date(),
-        error: true,
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      const errorMessage = error.message || 'Sorry, I couldn\'t connect to the server. Please make sure you\'re logged in and try again.';
+      
+      console.log('Setting error message:', errorMessage);
+      
+      setMessages(prev =>
+        prev.map(msg =>
+          msg.id === aiMessageId
+            ? { 
+                ...msg, 
+                content: errorMessage,
+                error: true 
+              }
+            : msg
+        )
+      );
     } finally {
       setIsTyping(false);
     }

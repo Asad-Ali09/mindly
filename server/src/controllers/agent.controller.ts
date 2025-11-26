@@ -69,6 +69,93 @@ export const processQuery = async (req: Request, res: Response) => {
 };
 
 /**
+ * Process a user query with the ReAct agent (streaming)
+ * POST /api/agent/query-stream
+ * Body: { query: string, history?: ConversationMessage[] }
+ */
+export const processQueryStream = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user._id;
+    const { query, history } = req.body;
+
+    console.log('Stream request received:', { userId: userId.toString(), query });
+
+    // Validate input
+    if (!query || typeof query !== 'string' || query.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Query is required and must be a non-empty string',
+      });
+    }
+
+    // Validate history if provided
+    if (history && !Array.isArray(history)) {
+      return res.status(400).json({
+        success: false,
+        message: 'History must be an array of conversation messages',
+      });
+    }
+
+    // Validate each message in history
+    if (history) {
+      for (const msg of history) {
+        if (!msg.role || !msg.content || !['user', 'assistant'].includes(msg.role)) {
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid history format. Each message must have role (user/assistant) and content',
+          });
+        }
+      }
+    }
+
+    // Set headers for SSE (Server-Sent Events)
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no'); // Disable buffering in nginx
+
+    console.log('Starting stream processing...');
+
+    // Process the query with streaming
+    await agentService.processQueryStream(
+      userId.toString(),
+      query.trim(),
+      history || [],
+      (chunk) => {
+        // Send each chunk as SSE
+        console.log('Sending chunk:', chunk.type);
+        res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+      }
+    );
+
+    console.log('Stream completed successfully');
+
+    // Send final event to indicate completion
+    res.write('data: [DONE]\n\n');
+    res.end();
+  } catch (error: any) {
+    console.error('Error in agent query stream controller:', error);
+    
+    // Check if headers were already sent
+    if (res.headersSent) {
+      // Send error as SSE
+      res.write(`data: ${JSON.stringify({
+        type: 'error',
+        error: error.message || 'Failed to process query',
+      })}\n\n`);
+      res.end();
+    } else {
+      // Send as regular error response
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to process query',
+        error: error.toString(),
+      });
+    }
+  }
+};
+
+/**
  * Health check endpoint for the agent service
  * GET /api/agent/health
  */

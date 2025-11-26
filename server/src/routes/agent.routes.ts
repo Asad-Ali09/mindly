@@ -4,7 +4,7 @@
  */
 
 import { Router } from 'express';
-import { processQuery, healthCheck, getCapabilities } from '../controllers/agent.controller';
+import { processQuery, processQueryStream, healthCheck, getCapabilities } from '../controllers/agent.controller';
 import { authMiddleware } from '../middlewares/auth.middleware';
 
 const router = Router();
@@ -18,6 +18,13 @@ router.use(authMiddleware);
  * Body: { query: string, history?: ConversationMessage[] }
  */
 router.post('/query', processQuery);
+
+/**
+ * POST /api/agent/query-stream
+ * Process a user query with the ReAct agent (streaming)
+ * Body: { query: string, history?: ConversationMessage[] }
+ */
+router.post('/query-stream', processQueryStream);
 
 /**
  * GET /api/agent/health
