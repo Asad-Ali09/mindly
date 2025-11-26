@@ -8,6 +8,8 @@ export * from './auth.api';
 export { quizApi } from './quiz.api';
 export * from './quiz.api';
 
+export { default as documentApi } from './document.api';
+export * from './document.api';
 export { default as classroomApi } from './classroom.api';
 export * from './classroom.api';
 
