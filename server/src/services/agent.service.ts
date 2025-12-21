@@ -17,7 +17,7 @@ class AgentService {
   constructor() {
     // Initialize Google Gemini model
     this.model = new ChatGoogleGenerativeAI({
-      model: 'gemini-2.0-flash',
+      model: config.geminiAIModel,
       apiKey: config.geminiApiKey,
       temperature: 0.7,
       maxOutputTokens: 2048,

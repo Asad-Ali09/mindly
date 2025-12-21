@@ -6,6 +6,7 @@
 import { Request, Response } from 'express';
 import agentService from '../services/agent.service';
 import { ConversationMessage } from '../types/agent.types';
+import config from '../config/config';
 
 /**
  * Process a user query with the ReAct agent
@@ -197,7 +198,7 @@ export const getCapabilities = async (req: Request, res: Response) => {
       success: true,
       data: {
         description: 'ReAct Agent with Google Classroom and Drive integration',
-        model: 'gemini-2.0-flash-exp',
+        model: config.geminiAIModel,
         features: [
           'List and search courses',
           'Find assignments by date, course, or keyword',
