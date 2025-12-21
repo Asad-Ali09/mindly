@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import aiService from '../services/ai.service';
+import aiService from '../services/ai.service.langchain';
 import LessonOutline from '../models/lessonOutline.model';
 
 class AIController {
