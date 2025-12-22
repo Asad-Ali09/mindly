@@ -3,7 +3,7 @@
  * Intelligent agent that can interact with Google Classroom and Drive using LangGraph
  */
 
-import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { ChatOpenAI } from '@langchain/openai';
 import { createReactAgent } from '@langchain/langgraph/prebuilt';
 import { HumanMessage, AIMessage, BaseMessage } from '@langchain/core/messages';
 import config from '../config/config';
@@ -12,16 +12,17 @@ import { createAllDriveTools } from '../tools/drive.tools';
 import { ConversationMessage, AgentResponse, FileAttachment } from '../types/agent.types';
 
 class AgentService {
-  private model: ChatGoogleGenerativeAI;
+  private model: ChatOpenAI;
 
   constructor() {
-    // Initialize Google Gemini model
-    this.model = new ChatGoogleGenerativeAI({
-      model: config.geminiAIModel,
-      apiKey: config.geminiApiKey,
+    // Initialize OpenAI model
+    this.model = new ChatOpenAI({
+      model: 'mistralai/devstral-2512:free',
+      apiKey: config.openRouterApiKey,
       temperature: 0.7,
-      maxOutputTokens: 2048,
+      maxTokens: 2048,
     });
+
   }
 
   /**
