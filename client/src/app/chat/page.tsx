@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Send, Paperclip, FileText, Download, AlertCircle } from 'lucide-react';
+import Link from 'next/link';
+import { FileText, Download, AlertCircle } from 'lucide-react';
 import { agentApi, ConversationMessage, FileAttachment } from '@/api';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -26,7 +27,12 @@ export default function ChatPage() {
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const recognitionRef = useRef<any>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -35,6 +41,81 @@ export default function ChatPage() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Auto-resize textarea
+  const resizeTextarea = () => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+    }
+  };
+
+  useEffect(() => {
+    resizeTextarea();
+  }, [input]);
+
+  // Initialize speech recognition
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US';
+
+        recognition.onresult = (event: any) => {
+          let transcript = '';
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            transcript += event.results[i][0].transcript;
+          }
+          setInput(transcript);
+        };
+
+        recognition.onerror = (event: any) => {
+          console.error('Speech recognition error:', event.error);
+          setIsListening(false);
+        };
+
+        recognition.onend = () => {
+          setIsListening(false);
+        };
+
+        recognitionRef.current = recognition;
+      }
+    }
+
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+    };
+  }, []);
+
+  const handleMicClick = () => {
+    if (!recognitionRef.current) {
+      alert('Speech recognition is not supported in your browser. Please use Chrome or Edge.');
+      return;
+    }
+
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      setInput('');
+      recognitionRef.current.start();
+      setIsListening(true);
+    }
+  };
+
+  const handleStopStream = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsTyping(false);
+  };
 
   const handleSend = async () => {
     if (!input.trim()) return;
@@ -48,6 +129,12 @@ export default function ChatPage() {
 
     setMessages(prev => [...prev, userMessage]);
     setInput('');
+
+    // Reset textarea height
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
+
     setIsTyping(true);
 
     // Create a placeholder AI message for streaming
@@ -59,6 +146,9 @@ export default function ChatPage() {
       timestamp: new Date(),
     };
     setMessages(prev => [...prev, aiMessage]);
+
+    // Create abort controller for this stream
+    abortControllerRef.current = new AbortController();
 
     try {
       // Build conversation history for context
@@ -129,6 +219,14 @@ export default function ChatPage() {
       }
     } catch (error: any) {
       console.error('Error sending message:', error);
+      
+      // Check if error is from abort
+      if (error.name === 'AbortError' || abortControllerRef.current === null) {
+        console.log('Stream was aborted by user');
+        // Don't show error message for user-initiated abort
+        return;
+      }
+      
       const errorMessage = error.message || 'Sorry, I couldn\'t connect to the server. Please make sure you\'re logged in and try again.';
       
       console.log('Setting error message:', errorMessage);
@@ -146,6 +244,7 @@ export default function ChatPage() {
       );
     } finally {
       setIsTyping(false);
+      abortControllerRef.current = null;
     }
   };
 
@@ -193,17 +292,28 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-[var(--night)]">
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--rust)]">
-        <div>
-          <h1 className="text-2xl font-bold text-white">AI Chat Assistant</h1>
-          <p className="text-sm text-gray-400">Powered by Google Gemini with Google Classroom integration</p>
+    <div className="relative h-screen bg-[var(--night)] overflow-hidden">
+      {/* Header - Fixed at top */}
+      <header className="hero-header" style={{ background: 'transparent', borderBottom: 'none', position: 'fixed', top: 0, left: 0, right: 0, zIndex: 10 }}>
+        <Link href="/" className="hero-brand">
+          <span>Mindly</span>
+        </Link>
+        <div className="flex items-center gap-3">
+          <Link href="/learn">
+            <button className="hero-cta" type="button">
+              Start Learning
+            </button>
+          </Link>
+          <Link href="/dashboard">
+            <button className="hero-cta" type="button">
+              Dashboard
+            </button>
+          </Link>
         </div>
-      </div>
+      </header>
 
-      {/* Messages Container */}
-      <div className="flex-1 overflow-y-auto px-4 py-6">
+      {/* Messages Container - Scrollable with full height */}
+      <div className="absolute inset-0 overflow-y-auto px-4" style={{ paddingTop: '100px', paddingBottom: '120px' }}>
         <div className="max-w-4xl mx-auto space-y-6">
           {messages.map((message) => (
             <div
@@ -215,11 +325,6 @@ export default function ChatPage() {
                   {/* Message Content */}
                   <div className="whitespace-pre-wrap break-words">
                     {message.content}
-                  </div>
-
-                  {/* Timestamp */}
-                  <div className="text-xs mt-2 text-gray-200">
-                    {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </div>
                 </div>
               ) : (
@@ -353,10 +458,7 @@ export default function ChatPage() {
                     </div>
                   )}
 
-                  {/* Timestamp */}
-                  <div className="text-xs text-gray-500">
-                    {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </div>
+
                 </div>
               )}
             </div>
@@ -365,12 +467,13 @@ export default function ChatPage() {
           {/* Typing Indicator */}
           {isTyping && (
             <div className="flex justify-start">
-              <div className="bg-[var(--darker)] border border-gray-800 rounded-2xl px-6 py-4">
-                <div className="flex space-x-2">
-                  <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                  <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                  <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                </div>
+              <div className="flex items-center px-6 py-4">
+                <div 
+                  className="w-2 h-2 bg-gray-400 rounded-full"
+                  style={{
+                    animation: 'breathe 1.5s ease-in-out infinite',
+                  }}
+                />
               </div>
             </div>
           )}
@@ -379,53 +482,162 @@ export default function ChatPage() {
         </div>
       </div>
 
-      {/* Input Area */}
-      <div className="border-t border-gray-800 bg-[var(--darker)] px-4 py-4">
+      {/* Chat Composer - Floating at Bottom */}
+      <div className="fixed bottom-0 left-0 right-0 px-4 pb-6 pt-4" style={{ zIndex: 20, background: 'transparent' }}>
         <div className="max-w-4xl mx-auto">
-          <div className="flex items-end gap-3">
-            {/* Attachment Button */}
+          {/* Capsule Container - Stateful Composer */}
+          <div 
+            className="flex items-center transition-all"
+            style={{
+              backgroundColor: isFocused || input ? '#323232' : '#2a2a2a',
+              borderRadius: (isFocused || input) ? '24px' : '9999px',
+              paddingLeft: '20px',
+              paddingRight: '20px',
+              paddingTop: (isFocused || input) ? '14px' : '12px',
+              paddingBottom: (isFocused || input) ? '14px' : '12px',
+              minHeight: (isFocused || input) ? '60px' : '52px',
+              gap: '14px',
+              boxShadow: 'none',
+              transition: 'all 0.18s ease-out',
+            }}
+          >
+            {/* Left Action: File Attachment */}
             <button
-              className="p-3 hover:bg-gray-800 rounded-lg transition-colors text-gray-400 hover:text-white"
+              disabled={isTyping}
+              className="flex-shrink-0 flex items-center justify-center rounded-lg transition-all hover:bg-white/5 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{
+                width: '40px',
+                height: '40px',
+                padding: 0,
+                margin: 0,
+              }}
               aria-label="Attach file"
             >
-              <Paperclip className="w-5 h-5" />
+              <svg 
+                width="20" 
+                height="20" 
+                viewBox="0 0 20 20" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="text-gray-400 transition-colors"
+              >
+                <line x1="10" y1="5" x2="10" y2="15" />
+                <line x1="5" y1="10" x2="15" y2="10" />
+              </svg>
             </button>
 
-            {/* Text Input */}
-            <div className="flex-1 relative">
-              <textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Ask me anything..."
-                className="w-full px-4 py-3 bg-gray-800 text-white rounded-xl border border-gray-700 focus:border-[var(--rust)] focus:outline-none resize-none max-h-32 min-h-[48px] scrollbar-hide overflow-y-auto"
-                rows={1}
+            {/* Center: Multiline Textarea */}
+            <textarea
+              ref={textareaRef}
+              value={input}
+              disabled={isTyping}
+              onChange={(e) => {
+                setInput(e.target.value);
+              }}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
+              }}
+              placeholder="Ask anything"
+              className="flex-1 bg-transparent text-white placeholder-gray-500 outline-none border-none resize-none overflow-y-auto scrollbar-hide disabled:opacity-60 disabled:cursor-not-allowed"
+              style={{
+                fontSize: '15px',
+                lineHeight: '22px',
+                minHeight: '22px',
+                maxHeight: '120px',
+                padding: 0,
+                margin: 0,
+                caretColor: '#ffffff',
+              }}
+              rows={1}
+            />
+
+            {/* Right Actions Group */}
+            <div className="flex items-center gap-2">
+              {/* Microphone Icon */}
+              <button
+                onClick={handleMicClick}
+                disabled={isTyping}
+                className="flex-shrink-0 flex items-center justify-center rounded-lg transition-all hover:bg-white/5 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
                 style={{
-                  height: 'auto',
-                  minHeight: '48px',
+                  width: '40px',
+                  height: '40px',
+                  padding: 0,
+                  margin: 0,
+                  backgroundColor: isListening ? 'rgba(239, 68, 68, 0.2)' : 'transparent',
                 }}
-                onInput={(e) => {
-                  const target = e.target as HTMLTextAreaElement;
-                  target.style.height = 'auto';
-                  target.style.height = target.scrollHeight + 'px';
+                aria-label="Voice input"
+              >
+                <svg 
+                  width="20" 
+                  height="20" 
+                  viewBox="0 0 24 24" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className={`transition-colors ${isListening ? 'text-red-500 animate-pulse' : 'text-gray-500'}`}
+                >
+                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                  <line x1="12" y1="19" x2="12" y2="23" />
+                  <line x1="8" y1="23" x2="16" y2="23" />
+                </svg>
+              </button>
+
+              {/* Send/Stop Button - Primary Action */}
+              <button
+                onClick={isTyping ? handleStopStream : handleSend}
+                disabled={!isTyping && !input.trim()}
+                className="flex-shrink-0 rounded-full flex items-center justify-center transition-all active:scale-95 disabled:cursor-not-allowed"
+                style={{
+                  width: '40px',
+                  height: '40px',
+                  padding: 0,
+                  margin: 0,
+                  backgroundColor: 'var(--rust)',
+                  opacity: (input.trim() || isTyping) ? 1 : 0.4,
+                  transition: 'opacity 0.15s ease-out, transform 0.1s ease-out',
                 }}
-              />
+                aria-label={isTyping ? "Stop streaming" : "Send message"}
+              >
+                {isTyping ? (
+                  // Stop icon (square)
+                  <svg 
+                    width="18" 
+                    height="18" 
+                    viewBox="0 0 24 24" 
+                    fill="white"
+                    stroke="none"
+                  >
+                    <rect x="6" y="6" width="12" height="12" rx="2" />
+                  </svg>
+                ) : (
+                  // Send icon (arrow)
+                  <svg 
+                    width="18" 
+                    height="18" 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="white" 
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <line x1="22" y1="2" x2="11" y2="13" />
+                    <polygon points="22 2 15 22 11 13 2 9 22 2" fill="white" />
+                  </svg>
+                )}
+              </button>
             </div>
-
-            {/* Send Button */}
-            <button
-              onClick={handleSend}
-              disabled={!input.trim()}
-              className="p-3 bg-[var(--rust)] hover:bg-[#a33209] disabled:bg-gray-700 disabled:cursor-not-allowed rounded-lg transition-colors text-white"
-              aria-label="Send message"
-            >
-              <Send className="w-5 h-5" />
-            </button>
-          </div>
-
-          {/* Helper Text */}
-          <div className="mt-2 text-center text-xs text-gray-500">
-            Press Enter to send, Shift + Enter for new line
           </div>
         </div>
       </div>

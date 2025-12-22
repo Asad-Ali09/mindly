@@ -17,6 +17,9 @@ class AgentService {
   constructor() {
     // Initialize OpenAI model
     this.model = new ChatOpenAI({
+      configuration: {
+        baseURL: 'https://openrouter.ai/api/v1',
+      },  
       model: 'mistralai/devstral-2512:free',
       apiKey: config.openRouterApiKey,
       temperature: 0.7,

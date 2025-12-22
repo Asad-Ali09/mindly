@@ -435,3 +435,15 @@ input:-moz-autofill-preview {
 .prose :where(tr):not(:where([class~="not-prose"] *)):hover {
   background-color: rgba(31, 41, 55, 0.5);
 }
+
+/* Breathing dot animation for typing indicator */
+@keyframes breathe {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.5);
+    opacity: 1;
+  }
+}

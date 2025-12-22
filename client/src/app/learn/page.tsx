@@ -112,11 +112,18 @@ const LearnPage = () => {
           </div>
           <div>
             {user ? (
-              <Link href="/dashboard">
-                <button className="hero-cta" type="button">
-                  Dashboard
-                </button>
-              </Link>
+              <div className="flex items-center gap-3">
+                <Link href="/chat">
+                  <button className="hero-cta" type="button">
+                    Chat with AI
+                  </button>
+                </Link>
+                <Link href="/dashboard">
+                  <button className="hero-cta" type="button">
+                    Dashboard
+                  </button>
+                </Link>
+              </div>
             ) : (
               <Link href="/login">
                 <button className="hero-cta" type="button">
