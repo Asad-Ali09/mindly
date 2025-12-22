@@ -6,7 +6,11 @@ import Link from 'next/link';
 import { Canvas } from '@react-three/fiber';
 import { Avatar } from '@/components/Avatar';
 import { useAuthStore } from '@/store';
-import { documentApi } from '@/api';
+import { documentApi, lessonGeneratorApi } from '@/api';
+import { useFBX } from '@react-three/drei';
+import { useMemo } from 'react';
+import * as THREE from 'three';
+import socketService from '@/lib/socketService';
 
 type FileType = 'pdf' | 'pptx' | 'image' | null;
 
@@ -28,6 +32,80 @@ interface DocumentData {
   createdAt: string;
 }
 
+interface LessonPage {
+  pageNumber: number;
+  title: string;
+  totalDuration: number;
+  captions: Array<{
+    timestamp: number;
+    text: string;
+    duration: number;
+    position?: 'bottom' | 'top' | 'middle';
+  }>;
+  animations: Array<{
+    id: string;
+    name?: string;
+    start: number;
+    duration: number;
+    loop?: boolean;
+  }>;
+}
+
+interface LessonData {
+  lessonTitle: string;
+  totalPages: number;
+  pages: LessonPage[];
+}
+
+// Hook to load animations
+function useAnimations() {
+  const breathingIdle = useFBX("/animations/Breathing Idle.fbx");
+  const handsForward = useFBX("/animations/Hands Forward Gesture.fbx");
+  const headNodYes = useFBX("/animations/Head Nod Yes.fbx");
+  const pointing = useFBX("/animations/Pointing.fbx");
+  const sarcasticNod = useFBX("/animations/Sarcastic Head Nod.fbx");
+  const standingArguing = useFBX("/animations/Standing Arguing.fbx");
+  const talking = useFBX("/animations/Talking.fbx");
+  const talking1 = useFBX("/animations/Talking (1).fbx");
+  const talking2 = useFBX("/animations/Talking (2).fbx");
+  const waving = useFBX("/animations/Waving.fbx");
+  const waving1 = useFBX("/animations/Waving (1).fbx");
+  const yelling = useFBX("/animations/Yelling.fbx");
+
+  return useMemo(() => {
+    const clips: THREE.AnimationClip[] = [];
+
+    const animationData = [
+      { fbx: breathingIdle, name: "Breathing Idle" },
+      { fbx: handsForward, name: "Hands Forward Gesture" },
+      { fbx: headNodYes, name: "Head Nod Yes" },
+      { fbx: pointing, name: "Pointing" },
+      { fbx: sarcasticNod, name: "Sarcastic Head Nod" },
+      { fbx: standingArguing, name: "Standing Arguing" },
+      { fbx: talking, name: "Talking" },
+      { fbx: talking1, name: "Talking (1)" },
+      { fbx: talking2, name: "Talking (2)" },
+      { fbx: waving, name: "Waving" },
+      { fbx: waving1, name: "Waving (1)" },
+      { fbx: yelling, name: "Yelling" }
+    ];
+
+    animationData.forEach(({ fbx, name }) => {
+      if (fbx && fbx.animations && fbx.animations.length > 0) {
+        const clip = fbx.animations[0];
+        clip.name = name;
+        clips.push(clip);
+      }
+    });
+
+    return clips;
+  }, [
+    breathingIdle, handsForward, headNodYes, pointing,
+    sarcasticNod, standingArguing, talking, talking1,
+    talking2, waving, waving1, yelling
+  ]);
+}
+
 const DocumentViewPage = () => {
   const router = useRouter();
   const params = useParams();
@@ -42,6 +120,35 @@ const DocumentViewPage = () => {
   const [viewMode, setViewMode] = useState<'images' | 'browser'>('images');
   const [leftPanelWidth, setLeftPanelWidth] = useState(33.33);
   const [isDragging, setIsDragging] = useState(false);
+
+  // Lecture mode states
+  const [lectureMode, setLectureMode] = useState(false);
+  const [lessonData, setLessonData] = useState<LessonData | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [isGeneratingLesson, setIsGeneratingLesson] = useState(false);
+  const [generationError, setGenerationError] = useState<string | null>(null);
+  const [activeAnimation, setActiveAnimation] = useState<string>('Breathing Idle');
+  const [currentCaption, setCurrentCaption] = useState<string>('');
+  const [currentAudioElement, setCurrentAudioElement] = useState<HTMLAudioElement | null>(null);
+  const [isPageTransitioning, setIsPageTransitioning] = useState(false);
+  const [isLoadingAudio, setIsLoadingAudio] = useState(false);
+  const [audioProgress, setAudioProgress] = useState({ loaded: 0, total: 0 });
+
+  // Animation and timing refs
+  const animationRef = useRef<number | null>(null);
+  const startTimeRef = useRef<number | null>(null);
+  const pauseTimeRef = useRef<number>(0);
+
+  // Audio refs
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const playedCaptionsRef = useRef<Set<number>>(new Set());
+  const audioQueueRef = useRef<Map<number, string>>(new Map());
+  const audioLoadedCountRef = useRef<number>(0);
+  const expectedAudioCountRef = useRef<number>(0);
+
+  // Load animation clips
+  const animationClips = useAnimations();
 
   const handleMouseDown = () => {
     setIsDragging(true);
@@ -76,6 +183,15 @@ const DocumentViewPage = () => {
       window.removeEventListener('mouseup', handleMouseUp);
     };
   }, [isDragging]);
+
+  // Initialize socket connection for TTS
+  useEffect(() => {
+    socketService.connect();
+    return () => {
+      socketService.removeAllListeners('audio-response');
+      socketService.removeAllListeners('tts-error');
+    };
+  }, []);
 
   // Fetch document data
   useEffect(() => {
@@ -174,6 +290,351 @@ const DocumentViewPage = () => {
     }
   };
 
+  // Lecture mode functions
+  const getCurrentPage = (): LessonPage | null => {
+    if (!lectureMode || !lessonData) return null;
+    // Find page matching current image index (pageNumber 1 = image index 0)
+    return lessonData.pages.find(p => p.pageNumber === currentImageIndex + 1) || null;
+  };
+
+  const handleStartLecture = async () => {
+    if (!documentData?.images || documentData.images.length === 0) {
+      setGenerationError('No pages available to generate lesson');
+      return;
+    }
+
+    try {
+      setIsGeneratingLesson(true);
+      setGenerationError(null);
+      
+      // Get the first page image URL
+      const firstPageImageUrl = documentData.images[0];
+      
+      // Generate lesson content for the first page
+      const response = await lessonGeneratorApi.generatePage({
+        pageNumber: 1,
+        lessonTitle: documentData.fileName.replace(/\.[^/.]+$/, ''), // Remove file extension
+        imageUrl: firstPageImageUrl,
+        additionalContext: 'Create engaging educational content for this page'
+      });
+      
+      if (!response.success || !response.data) {
+        throw new Error('Failed to generate lesson content');
+      }
+
+      // Set the lesson data with the first page
+      setLessonData({
+        lessonTitle: documentData.fileName,
+        totalPages: documentData.images.length,
+        pages: [response.data]
+      });
+
+      setIsGeneratingLesson(false);
+      setLectureMode(true);
+      setIsPlaying(false); // Don't play yet
+      setCurrentImageIndex(0); // Start at first page
+      setCurrentTime(0);
+      pauseTimeRef.current = 0;
+      startTimeRef.current = null;
+      playedCaptionsRef.current.clear();
+      audioQueueRef.current.clear();
+      
+      // Pre-fetch audio for first page
+      const firstPage = response.data;
+      if (firstPage) {
+        setIsLoadingAudio(true);
+        audioLoadedCountRef.current = 0;
+        expectedAudioCountRef.current = firstPage.captions.length;
+        setAudioProgress({ loaded: 0, total: firstPage.captions.length });
+        
+        const audioPromises = firstPage.captions.map((caption, index) => {
+          return new Promise<void>((resolve) => {
+            socketService.requestTextToSpeech(
+              caption.text,
+              (data) => {
+                audioQueueRef.current.set(index, data.audio);
+                audioLoadedCountRef.current++;
+                setAudioProgress({ 
+                  loaded: audioLoadedCountRef.current, 
+                  total: expectedAudioCountRef.current 
+                });
+                resolve();
+              },
+              (error) => {
+                console.error('Error loading audio:', error);
+                audioLoadedCountRef.current++;
+                setAudioProgress({ 
+                  loaded: audioLoadedCountRef.current, 
+                  total: expectedAudioCountRef.current 
+                });
+                resolve();
+              }
+            );
+          });
+        });
+        
+        // Wait for all audio to load
+        await Promise.all(audioPromises);
+        setIsLoadingAudio(false);
+        // Now start playing
+        setIsPlaying(true);
+      }
+    } catch (error) {
+      console.error('Error generating lesson:', error);
+      setGenerationError(error instanceof Error ? error.message : 'Failed to generate lesson content');
+      setIsGeneratingLesson(false);
+    }
+  };
+
+  const handlePauseLecture = () => {
+    setIsPlaying(false);
+    setActiveAnimation('Breathing Idle');
+  };
+
+  const handleResumeLecture = () => {
+    setIsPlaying(true);
+  };
+
+  const handleStopLecture = () => {
+    setIsPlaying(false);
+    setLectureMode(false);
+    setCurrentTime(0);
+    setCurrentImageIndex(0); // Reset to first page
+    setActiveAnimation('Breathing Idle');
+    setCurrentCaption('');
+    pauseTimeRef.current = 0;
+    startTimeRef.current = null;
+    playedCaptionsRef.current.clear();
+    audioQueueRef.current.clear();
+    
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+      setCurrentAudioElement(null);
+    }
+    
+    if (animationRef.current !== null) {
+      cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
+    }
+  };
+
+  // Animation loop for lecture playback
+  useEffect(() => {
+    if (!isPlaying || !lectureMode) {
+      if (animationRef.current !== null) {
+        cancelAnimationFrame(animationRef.current);
+        animationRef.current = null;
+      }
+      return;
+    }
+
+    const currentPage = getCurrentPage();
+    if (!currentPage) return;
+
+    // When resuming or starting, calculate the correct start time
+    if (startTimeRef.current === null) {
+      startTimeRef.current = performance.now() - (pauseTimeRef.current * 1000);
+    }
+
+    const animate = (timestamp: number) => {
+      if (!startTimeRef.current) return;
+
+      const elapsed = (timestamp - startTimeRef.current) / 1000;
+      setCurrentTime(elapsed);
+
+      // Update avatar animation based on current time
+      const currentAnimation = currentPage.animations.find(
+        anim => elapsed >= anim.start && elapsed < anim.start + anim.duration
+      );
+      if (currentAnimation) {
+        setActiveAnimation(currentAnimation.name || currentAnimation.id);
+      } else {
+        setActiveAnimation('Breathing Idle');
+      }
+
+      // Update caption
+      const currentCaptionObj = currentPage.captions.find(
+        caption => elapsed >= caption.timestamp && elapsed < caption.timestamp + caption.duration
+      );
+      setCurrentCaption(currentCaptionObj?.text || '');
+
+      // Play audio for captions
+      currentPage.captions.forEach((caption, index) => {
+        const captionStart = caption.timestamp;
+        const captionEnd = caption.timestamp + caption.duration;
+        
+        if (elapsed >= captionStart && elapsed < captionEnd) {
+          if (!playedCaptionsRef.current.has(index)) {
+            playedCaptionsRef.current.add(index);
+            
+            const audioData = audioQueueRef.current.get(index);
+            if (audioData) {
+              if (audioRef.current) {
+                audioRef.current.pause();
+              }
+              
+              const audio = new Audio(`data:audio/mp3;base64,${audioData}`);
+              audioRef.current = audio;
+              setCurrentAudioElement(audio);
+              
+              audio.play().catch(err => {
+                console.error('Error playing audio:', err);
+              });
+            }
+          }
+        }
+      });
+
+      // Check if page is complete and move to next
+      if (elapsed >= currentPage.totalDuration) {
+        const nextImageIndex = currentImageIndex + 1;
+        const nextPageNumber = nextImageIndex + 1;
+        
+        if (nextImageIndex < (documentData?.images?.length || 0)) {
+          // Pause playback and show transition
+          setIsPlaying(false);
+          setIsPageTransitioning(true);
+          setActiveAnimation('Breathing Idle');
+          
+          // Cancel current animation frame
+          if (animationRef.current !== null) {
+            cancelAnimationFrame(animationRef.current);
+            animationRef.current = null;
+          }
+          
+          // Generate content for next page
+          const generateAndLoadNextPage = async () => {
+            try {
+              setIsLoadingAudio(true);
+              setAudioProgress({ loaded: 0, total: 1 });
+              
+              // Check if we already have this page in lessonData
+              let nextPage = lessonData?.pages.find(p => p.pageNumber === nextPageNumber);
+              
+              if (!nextPage && documentData?.images) {
+                // Generate lesson content for next page
+                const response = await lessonGeneratorApi.generatePage({
+                  pageNumber: nextPageNumber,
+                  lessonTitle: documentData.fileName.replace(/\.[^/.]+$/, ''),
+                  imageUrl: documentData.images[nextImageIndex],
+                  additionalContext: 'Create engaging educational content for this page'
+                });
+                
+                if (response.success && response.data) {
+                  nextPage = response.data;
+                  // Add to lesson data
+                  setLessonData(prev => prev ? {
+                    ...prev,
+                    pages: [...prev.pages, response.data]
+                  } : null);
+                }
+              }
+              
+              if (nextPage) {
+                // Load audio for next page
+                audioLoadedCountRef.current = 0;
+                expectedAudioCountRef.current = nextPage.captions.length;
+                setAudioProgress({ loaded: 0, total: nextPage.captions.length });
+                
+                const audioPromises = nextPage.captions.map((caption, index) => {
+                  return new Promise<void>((resolve) => {
+                    socketService.requestTextToSpeech(
+                      caption.text,
+                      (data) => {
+                        audioQueueRef.current.set(index, data.audio);
+                        audioLoadedCountRef.current++;
+                        setAudioProgress({ 
+                          loaded: audioLoadedCountRef.current, 
+                          total: expectedAudioCountRef.current 
+                        });
+                        resolve();
+                      },
+                      (error) => {
+                        console.error('Error loading audio:', error);
+                        audioLoadedCountRef.current++;
+                        setAudioProgress({ 
+                          loaded: audioLoadedCountRef.current, 
+                          total: expectedAudioCountRef.current 
+                        });
+                        resolve();
+                      }
+                    );
+                  });
+                });
+                
+                // Wait for audio and then transition
+                await Promise.all(audioPromises);
+                setIsLoadingAudio(false);
+                
+                // Wait a bit for transition animation
+                setTimeout(() => {
+                  // Move to next page
+                  setCurrentImageIndex(nextImageIndex);
+                  setCurrentTime(0);
+                  pauseTimeRef.current = 0;
+                  startTimeRef.current = null;
+                  playedCaptionsRef.current.clear();
+                  
+                  // End transition and resume playback
+                  setTimeout(() => {
+                    setIsPageTransitioning(false);
+                    setIsPlaying(true);
+                  }, 500);
+                }, 300);
+              }
+            } catch (error) {
+              console.error('Error generating next page:', error);
+              setIsLoadingAudio(false);
+              setIsPageTransitioning(false);
+              setIsPlaying(false);
+              setGenerationError('Failed to generate next page content');
+            }
+          };
+          
+          generateAndLoadNextPage();
+        } else {
+          // Lecture complete
+          setIsPlaying(false);
+          setActiveAnimation('Breathing Idle');
+          startTimeRef.current = null;
+          pauseTimeRef.current = 0;
+        }
+        return;
+      }
+
+      animationRef.current = requestAnimationFrame(animate);
+    };
+
+    animationRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (animationRef.current !== null) {
+        cancelAnimationFrame(animationRef.current);
+        animationRef.current = null;
+      }
+    };
+  }, [isPlaying, lectureMode, currentImageIndex, lessonData]);
+
+  // Handle pause/stop
+  useEffect(() => {
+    if (!isPlaying && startTimeRef.current !== null) {
+      pauseTimeRef.current = currentTime;
+      setActiveAnimation('Breathing Idle');
+      
+      if (animationRef.current !== null) {
+        cancelAnimationFrame(animationRef.current);
+        animationRef.current = null;
+      }
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+        setCurrentAudioElement(null);
+      }
+      startTimeRef.current = null;
+    }
+  }, [isPlaying, currentTime]);
+
   if (isLoading) {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-[#0A0B09]">
@@ -217,8 +678,37 @@ const DocumentViewPage = () => {
               </button>
             </Link>
             
+            {/* Lecture Mode Toggle */}
+            {documentData?.images && documentData.images.length > 0 && (
+              <button
+                onClick={() => {
+                  if (lectureMode) {
+                    handleStopLecture();
+                  } else {
+                    handleStartLecture();
+                  }
+                }}
+                disabled={isGeneratingLesson}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                  lectureMode
+                    ? 'bg-[#bf3a0d] text-[#ffffff]'
+                    : 'bg-[#141712] text-[#ffffff]/70 hover:text-[#ffffff] border border-[#bf3a0d]/30'
+                }`}
+              >
+                {isGeneratingLesson ? (
+                  <span className="flex items-center gap-2">
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Generating...
+                  </span>
+                ) : lectureMode ? 'Exit Lecture Mode' : 'Start Lecture'}
+              </button>
+            )}
+            
             {/* View Mode Toggle */}
-            {(documentData.pageImages || documentData.images) && (documentData.pageImages?.length || documentData.images?.length || 0) > 1 && (
+            {!lectureMode && (documentData?.pageImages || documentData?.images) && (documentData.pageImages?.length || documentData.images?.length || 0) > 1 && (
               <div className="flex items-center gap-2 border-l border-[#bf3a0d]/30 pl-4">
                 <span className="text-[#ffffff]/70 text-sm">View:</span>
                 <button
@@ -286,27 +776,105 @@ const DocumentViewPage = () => {
                 <Avatar
                   position={[0, -1.75, 5]}
                   scale={2}
-                  animation="Breathing Idle"
+                  animation={activeAnimation}
+                  animations={animationClips}
                   script=""
                   lipsync={[]}
-                  audioPlayer={null}
+                  audioElement={currentAudioElement}
                 />
               </Suspense>
             </Canvas>
           </div>
 
-          {/* Ask Question Button */}
-          <div className="absolute bottom-8 left-8 right-8 flex items-center justify-center">
-            <button
-              className="max-w-[400px] w-full py-4 px-6 bg-[#bf3a0d] text-[#ffffff] font-semibold rounded-lg hover:bg-[#bf3a0d]/90 transition-colors flex items-center justify-center gap-3"
-              onClick={() => {}}
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-              </svg>
-              Ask a Question
-            </button>
-          </div>
+          {/* Lecture Controls and Caption */}
+          {lectureMode && (
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-[#0A0B09] to-transparent p-6">
+              {/* Generation Error */}
+              {generationError && (
+                <div className="mb-4 bg-red-900/90 backdrop-blur-sm border border-red-500/30 rounded-lg p-4">
+                  <p className="text-white text-center">{generationError}</p>
+                </div>
+              )}
+              
+              {/* Loading Audio Indicator */}
+              {isLoadingAudio && (
+                <div className="mb-4 bg-[#141712]/90 backdrop-blur-sm border border-[#bf3a0d]/30 rounded-lg p-4">
+                  <div className="flex items-center justify-center gap-3">
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-[#bf3a0d] border-t-transparent"></div>
+                    <p className="text-[#ffffff] text-center">
+                      Loading audio... ({audioProgress.loaded}/{audioProgress.total})
+                    </p>
+                  </div>
+                </div>
+              )}
+              
+              {/* Caption Display */}
+              {!isLoadingAudio && currentCaption && (
+                <div className="mb-4 bg-[#141712]/90 backdrop-blur-sm border border-[#bf3a0d]/30 rounded-lg p-4">
+                  <p className="text-[#ffffff] text-center text-lg leading-relaxed">
+                    {currentCaption}
+                  </p>
+                </div>
+              )}
+
+              {/* Playback Controls */}
+              <div className="flex items-center justify-center gap-3">
+                {!isPlaying ? (
+                  <button
+                    onClick={handleResumeLecture}
+                    disabled={isLoadingAudio || isPageTransitioning}
+                    className="px-6 py-3 bg-[#bf3a0d] text-[#ffffff] font-semibold rounded-lg hover:bg-[#bf3a0d]/90 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
+                    </svg>
+                    Play
+                  </button>
+                ) : (
+                  <button
+                    onClick={handlePauseLecture}
+                    disabled={isLoadingAudio || isPageTransitioning}
+                    className="px-6 py-3 bg-[#bf3a0d] text-[#ffffff] font-semibold rounded-lg hover:bg-[#bf3a0d]/90 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M5.75 3a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75V3.75A.75.75 0 007.25 3h-1.5zM12.75 3a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75V3.75a.75.75 0 00-.75-.75h-1.5z" />
+                    </svg>
+                    Pause
+                  </button>
+                )}
+                
+                <button
+                  onClick={handleStopLecture}
+                  disabled={isLoadingAudio}
+                  className="px-6 py-3 bg-[#141712] text-[#ffffff] font-semibold rounded-lg hover:bg-[#141712]/80 border border-[#bf3a0d]/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Stop
+                </button>
+              </div>
+
+              {/* Progress Info */}
+              <div className="mt-3 text-center">
+                <p className="text-[#ffffff]/70 text-sm">
+                  Lesson Page {getCurrentPage()?.pageNumber || 1} of {lessonData?.totalPages || 1} • {currentTime.toFixed(1)}s / {getCurrentPage()?.totalDuration.toFixed(1) || '0.0'}s
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Ask Question Button - Only show when not in lecture mode */}
+          {!lectureMode && (
+            <div className="absolute bottom-8 left-8 right-8 flex items-center justify-center">
+              <button
+                className="max-w-[400px] w-full py-4 px-6 bg-[#bf3a0d] text-[#ffffff] font-semibold rounded-lg hover:bg-[#bf3a0d]/90 transition-colors flex items-center justify-center gap-3"
+                onClick={() => {}}
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                </svg>
+                Ask a Question
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Resizable Divider */}
@@ -325,7 +893,7 @@ const DocumentViewPage = () => {
           style={{ width: `${100 - leftPanelWidth}%` }}
         >
           {/* Document Display */}
-          <div className="flex-1 overflow-hidden flex flex-col">
+          <div className="flex-1 overflow-hidden flex flex-col relative">
             {viewMode === 'browser' && (documentData.cloudinaryUrl || documentData.fileUrl) && (documentData.fileType === 'pdf' || documentData.fileType === 'pptx') ? (
               <div className="flex-1 w-full">
                 <iframe
@@ -352,11 +920,11 @@ const DocumentViewPage = () => {
                 </div>
               </div>
             ) : documentData.images && documentData.images.length > 0 ? (
-              <div className="flex-1 flex justify-center items-start p-4 overflow-y-auto overflow-x-hidden bg-gray-100">
+              <div className={`flex-1 flex justify-center items-start p-4 overflow-y-auto overflow-x-hidden bg-gray-100 transition-opacity duration-500 ${isPageTransitioning ? 'opacity-0' : 'opacity-100'}`}>
                 <img
                   src={documentData.images[currentImageIndex]}
                   alt={`Page ${currentImageIndex + 1}`}
-                  className="object-contain"
+                  className="object-contain transition-opacity duration-300"
                   style={{ maxWidth: '100%', width: 'auto', height: 'auto' }}
                 />
               </div>
@@ -368,13 +936,18 @@ const DocumentViewPage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[#ffffff] font-medium">{documentData.fileName}</p>
+                {lectureMode && getCurrentPage() && (
+                  <p className="text-[#bf3a0d] text-sm mt-1">
+                    {getCurrentPage()?.title}
+                  </p>
+                )}
                 <p className="text-[#ffffff]/50 text-sm">
                   {documentData.fileType?.toUpperCase()} • {(documentData.fileSize / 1024 / 1024).toFixed(2)} MB
                 </p>
               </div>
               
-              {/* Navigation Controls - Only show in image view mode */}
-              {viewMode === 'images' && documentData.images && (
+              {/* Navigation Controls - Only show in image view mode and not in lecture mode */}
+              {viewMode === 'images' && !lectureMode && documentData.images && (
                 <div className="flex items-center gap-4">
                   <button
                     onClick={handlePrevImage}

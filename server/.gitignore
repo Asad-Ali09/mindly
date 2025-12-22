@@ -10,3 +10,5 @@ uploads/converted/*
 !uploads/converted/.gitkeep
 uploads/metadata/*
 !uploads/metadata/.gitkeep
+
+temp/

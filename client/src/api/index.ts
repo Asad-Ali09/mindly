@@ -16,5 +16,8 @@ export * from './classroom.api';
 export { default as agentApi } from './agent.api';
 export * from './agent.api';
 
+export { default as lessonGeneratorApi } from './lessonGenerator.api';
+export * from './lessonGenerator.api';
+
 // Export axios instance for custom requests if needed
 export { default as apiClient } from './axios';

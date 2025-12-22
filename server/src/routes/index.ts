@@ -7,6 +7,7 @@ import proxyRoutes from './proxy.routes';
 import authRoutes from './auth.routes';
 import classroomRoutes from './classroom.routes';
 import agentRoutes from './agent.routes';
+import lessonGeneratorRoutes from './lessonGenerator.routes';
 
 const router = Router();
 
@@ -36,5 +37,8 @@ router.use('/classroom', classroomRoutes);
 
 // Mount Agent routes (ReAct Agent)
 router.use('/agent', agentRoutes);
+
+// Mount Lesson Generator routes
+router.use('/lesson-generator', lessonGeneratorRoutes);
 
 export default router;
